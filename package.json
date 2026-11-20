@@ -1,0 +1,35 @@
+{
+  "name": "image-caption-peng",
+  "version": "0.1.5",
+  "private": true,
+  "type": "module",
+  "description": "Add and edit Markdown captions below images in Live Preview and display them in Reading View.",
+  "author": "Peng",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheodorePeng/obsidian-image-caption-peng.git"
+  },
+  "scripts": {
+    "build": "npm run typecheck && node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.25.12",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.5.1",
+    "obsidian": "^1.14.4",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.73.0"
+  },
+  "dependencies": {
+    "@lezer/markdown": "^1.8.1"
+  }
+}

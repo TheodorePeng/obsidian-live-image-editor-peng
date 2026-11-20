@@ -1,0 +1,10 @@
+{
+  "id": "image-caption-peng",
+  "name": "Image Caption Peng",
+  "version": "0.1.5",
+  "minAppVersion": "1.15.1",
+  "description": "Add and edit Markdown captions below images in Live Preview and display them in Reading View.",
+  "author": "Peng",
+  "authorUrl": "https://github.com/TheodorePeng",
+  "isDesktopOnly": true
+}
