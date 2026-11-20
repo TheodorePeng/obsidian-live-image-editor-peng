@@ -1,12 +1,12 @@
 import { deepEqual, equal, ok } from "node:assert/strict";
 import { test } from "node:test";
-import { imageActionCompanion, imageActionPosition } from "../src/image-action-placement";
+import { adjacentActionPosition, imageActionCompanion, imageActionPosition } from "../src/image-action-placement";
 
 const clip = { left: 0, top: 0, right: 800, bottom: 600 };
 const image = { left: 60, top: 100, right: 260, bottom: 212 };
 
 void test("places the full hit area at the image's bottom left", () => {
-  deepEqual(imageActionPosition(image, clip, []), { left: 65, top: 183, size: 24 });
+  deepEqual(imageActionPosition(image, clip, []), { left: 65, top: 187, size: 20 });
 });
 
 void test("keeps the button in the bottom-left quadrant without touching controls", () => {
@@ -36,15 +36,23 @@ void test("does not shift outside the image when the lower-left area is occupied
 void test("adds the caption to the right while keeping the crop position and size", () => {
   const crop = imageActionPosition(image, clip, []);
   ok(crop);
-  deepEqual(imageActionCompanion(image, clip, [], crop), { left: 93, top: 183, size: 24 });
-  deepEqual(crop, { left: 65, top: 183, size: 24 });
+  deepEqual(imageActionCompanion(image, clip, [], crop), { left: 89, top: 187, size: 20 });
+  deepEqual(crop, { left: 65, top: 187, size: 20 });
 });
 
 void test("leaves the crop alone when the right slot is clipped or occupied", () => {
   const crop = imageActionPosition(image, clip, []);
   ok(crop);
-  equal(imageActionCompanion(image, { ...clip, right: 116 }, [], crop), undefined);
+  equal(imageActionCompanion(image, { ...clip, right: 106 }, [], crop), undefined);
   const control = { left: 105, top: 185, right: 128, bottom: 208 };
   equal(imageActionCompanion(image, clip, [control], crop), undefined);
   deepEqual(imageActionPosition(image, clip, [control]), crop);
+});
+
+void test("uses a free slot immediately below a tiny image and rejects obstructed or clipped slots", () => {
+  const tiny = { left: 60, top: 100, right: 88, bottom: 114 };
+  equal(imageActionPosition(tiny, clip, []), undefined);
+  deepEqual(adjacentActionPosition(tiny, clip, []), { left: 60, top: 114, size: 20 });
+  equal(adjacentActionPosition(tiny, clip, [{ left: 57, top: 115, right: 75, bottom: 122 }]), undefined);
+  equal(adjacentActionPosition(tiny, { ...clip, bottom: 126 }, []), undefined);
 });

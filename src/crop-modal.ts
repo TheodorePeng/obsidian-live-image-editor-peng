@@ -4,6 +4,7 @@ import { cropHandles, moveCrop, type Crop, type CropHandle } from "./crop-state"
 const fullImage: Crop = [0, 0, 1, 1];
 export class CropModal extends Modal {
   private crop: Crop;
+  private dragEvents?: AbortController;
 
   constructor(app: App, private readonly url: string, private readonly initial: Crop | undefined,
     private readonly save: (crop?: Crop) => boolean, private readonly closed: () => void) {
@@ -34,6 +35,9 @@ export class CropModal extends Modal {
     }
 
     let drag: { id: number; x: number; y: number; crop: Crop; handle: CropHandle } | undefined;
+    const win = selection.doc.defaultView ?? window;
+    this.dragEvents = new win.AbortController();
+    const signal = this.dragEvents.signal;
     const draw = () => {
       const [x, y, width, height] = this.crop;
       selection.setCssProps({ left: `${x * 100}%`, top: `${y * 100}%`, width: `${width * 100}%`, height: `${height * 100}%` });
@@ -45,7 +49,7 @@ export class CropModal extends Modal {
       selection.setPointerCapture(event.pointerId);
       event.preventDefault();
     });
-    selection.addEventListener("pointermove", event => {
+    win.addEventListener("pointermove", event => {
       if (!drag || drag.id !== event.pointerId) return;
       if (!(event.buttons & 1)) {
         drag = undefined;
@@ -57,11 +61,12 @@ export class CropModal extends Modal {
         (event.clientY - drag.y) / bounds.height, Math.min(drag.crop[2], 12 / bounds.width),
         Math.min(drag.crop[3], 12 / bounds.height));
       draw();
-    });
-    const endDrag = () => { drag = undefined; };
-    selection.addEventListener("pointerup", endDrag);
-    selection.addEventListener("pointercancel", endDrag);
-    selection.addEventListener("lostpointercapture", endDrag);
+    }, { capture: true, signal });
+    const endDrag = (event: PointerEvent) => {
+      if (event.pointerId === drag?.id) drag = undefined;
+    };
+    win.addEventListener("pointerup", endDrag, { capture: true, signal });
+    win.addEventListener("pointercancel", endDrag, { capture: true, signal });
     stage.hidden = true;
     void image.decode().then(() => {
       stage.hidden = false;
@@ -73,6 +78,8 @@ export class CropModal extends Modal {
   }
 
   onClose(): void {
+    this.dragEvents?.abort();
+    this.dragEvents = undefined;
     this.contentEl.empty();
     this.closed();
   }

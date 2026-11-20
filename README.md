@@ -4,16 +4,10 @@ Crop local images and write Markdown captions in Obsidian. Edit in Live Preview 
 
 ## Features
 
-- Hover a local image in Live Preview and click **Crop**. Drag the selection or its handles, then confirm. Open Crop again to adjust the selection or restore the original image.
-- Each image reference has its own crop. The original attachment stays intact, and the crop follows the reference as a hidden note comment.
-
-- Hover an image in Live Preview and click the **+** next to Crop in the lower-left image controls to create an HTML-marked caption directly below the image, with the cursor already on the caption line. Click the caption text or its blank area to edit an existing caption.
-- The lower-left group keeps **Crop** first. The **+** appears to its right while there is space and the image has no caption. When only captioning is available, **+** appears by itself. The group respects native image controls and overlays.
-- A matched caption renders as a tinted strip attached under the image in both Live Preview and Reading View. It wraps to the image's actual displayed width and keeps following the image when the width changes.
-- Captions support multiple paragraphs, emphasis, internal and external links, lists, and inline or block formulas. A formula wider than the image scrolls horizontally inside the formula area.
-- Wiki images, native size parameters, and local or remote Markdown images are supported. Paragraph and list-item boundaries stop the match, so unrelated text is never captured.
-- Empty captions show a placeholder in Live Preview and disappear in Reading View. An unpaired caption retains its text.
-- Adding and editing integrate with Obsidian's undo and redo. To delete a caption, remove its two markers and the text between them.
+- In Live Preview, hover a local image and choose **Crop** or **Add caption**. The first caption or crop wraps that image in a figure. The original attachment is preserved.
+- A figure displays one image with its optional Markdown caption. Use the compact lower-left buttons or the image menu. Click a caption and type directly underneath the image. Obsidian handles Markdown, wikilink suggestions and undo in the same editor. For a figure with a caption, click its text or choose **Edit caption** from the image menu. The lower-right handle adjusts the displayed size.
+- While editing a caption, Live Preview shows the opening and closing comments. Press **Enter** at the end of the closing comment to start a line outside the figure. Use **Edit Markdown** in the image menu to reach those markers directly.
+- Select the image and press **Shift+Tab** to move the figure up one level. **Tab** moves it back to its previous position or into the preceding eligible bullet. These keys move the figure only. The image menu also offers the available moves. Each move is one undo step.
 
 ## Install with BRAT
 
@@ -36,53 +30,24 @@ Copy `main.js`, `manifest.json`, and `styles.css` from the [latest release](http
 
 ## Syntax
 
-Crop metadata is written by the dialog. Keep it on the same line as its image reference when moving a cropped image.
+A figure starts with one versioned HTML comment and ends with a separate closing comment. Put exactly one Wiki or Markdown image on the next line. The caption is optional and uses ordinary Markdown. Crop coordinates are normalized to the original image.
 
 ```markdown
-![[beam.png|251]] <!-- live-image-editor-peng:v1 {"crop":[0.15,0.2,0.6,0.5]} -->
+<!-- live-image-figure:v1 {"crop":{"x":0.25,"y":0.25,"width":0.5,"height":0.25}} -->
+![[beam.png|320]]
+
+**Beam under load.** See [[Structural Mechanics]].
+
+<!-- /live-image-figure -->
 ```
 
-Caption example:
+If a figure has a caption and no crop, start it with `<!-- live-image-figure:v1 -->`. With the plugin disabled, Obsidian displays the original image and caption. Older caption and crop markers appear as ordinary Markdown.
 
+### Unordered lists and Canvas
 
-````markdown
-![[beam.png|300]]
-<!-- image-caption:start -->
-**Figure 1: Simply supported beam under load**
+A single image at the end of a list item's text becomes a continuation of that item when first edited. The link and title stay with the item. To create a figure with its own bullet, start a child bullet with the opening comment and indent the image, caption and closing comment to that child's content column.
 
-See [[Structural Mechanics]]. The mid-span moment is $M_{\max}=FL/4$.
-
-<!-- image-caption:end -->
-````
-
-Inside a list, keep the image, both markers, and the caption text in the same list item. Indent the markers and text to the list item's continuation column.
-
-````markdown
-- First-level topic
-  - Second-level topic
-
-    ![[beam.png]]
-    <!-- image-caption:start -->
-    **Figure 2: Free-body diagram**
-
-    $$
-    M_{\max}=\frac{FL}{4}
-    $$
-
-    <!-- image-caption:end -->
-````
-
-One image occupies its own line. The plus inserts the opening marker immediately after the image and focuses the caption line. Leave a blank line before the closing marker, especially after a list inside the caption. Text between the comments is native Markdown, so Obsidian indexes its internal links. When moving an image manually, move its caption with it.
-
-## Lists and indentation
-
-In **Live Preview**, put the cursor on the line of a single image, or select that image reference. Press **Tab** to indent and **Shift+Tab** to outdent. When the image has a closed caption in either format, the caption follows the image to its new list position and keeps its paragraphs, list indentation, formulas, and links. Each move is one step for **⌘Z** and one step for **⇧⌘Z**.
-
-This works both for an image that owns its bullet and for an image on a continuation line of a bullet. If a keypress would detach the image from the unordered list, turn it into indented code, or break the pairing between image and caption, the image and its caption stay where they are. Ordered lists, multi-line or multi-cursor selections, images without a caption, unclosed captions, and Source mode keep Obsidian's native key behavior.
-
-## Compatibility
-
-The scope of this release is plain body text and lists. Tables, callouts, embedded notes, and multiple images on one line use their own native or third-party interaction. A third-party caption plugin can coexist with this plugin, in which case one image may show two captions. Mobile, older Obsidian versions, and third-party Markdown extensions have not been verified.
+In Canvas, double-click a Markdown file or text card to edit it. File cards save to the source note. Text cards save to the card. Notes embedded in a text card show their figures and can be edited in the source note. Direct image-file cards, tables, quotes and Callouts use their native rendering.
 
 ## Development
 
@@ -100,16 +65,10 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## 功能
 
-- 在 Live Preview 悬停本地图片并点击 **裁剪**。拖动选区或手柄后确认。再次打开裁剪可调整选区或恢复原图。
-- 每次图片引用可保存独立裁剪。裁剪参数以隐藏注释随引用保存，原附件保持原样。
-
-- 在 Live Preview 中把鼠标移到还没有图注的图片上，点击图片左下角操作组里的 **+**，直接输入图注。两条 HTML 注释标出图注的范围。已有图注的图片，点击图注正文或空白处即可编辑。
-- 左下角操作组将 **裁剪** 放在第一位。图片没有图注且空间足够时，右侧显示 **+**。仅支持添加图注时，单独显示 **+**。按钮会避让原生图片控件和浮层。
-- 已匹配的图注以主题浅底色条贴在图片下方，Live Preview 和 Reading View 一致。底色条随图片的实际显示宽度换行，图片宽度变化时继续跟随。
-- 图注支持多段落、强调、内外部链接、列表与行内／块级公式。宽公式可以在公式区域横向滚动。
-- 支持 Wiki 图片、原生尺寸参数以及本地和远程 Markdown 图片。段落和列表项边界会中断匹配，不会误收无关文本。
-- 空图注在 Live Preview 中显示「添加图注内容」，在 Reading View 中隐藏。图注失联后仍保留正文。
-- 添加和编辑可以使用 Obsidian 的撤销／重做。删除图注时，移除两条标记和其中的正文。
+- 在 Live Preview 悬停本地图片，点击左下角 **裁剪** 或 **添加图注**。添加图注或首次确认裁剪时创建图块，原附件保留原样。
+- 每个图块包含一张图和可选的 Markdown 图注。点击图片下方的图注即可原位编辑，可使用原生 Markdown、`[[` 链接建议和撤销。已有图注时可直接点击正文，也可在图片右键菜单选择 **编辑图注**。右下角手柄调整显示尺寸。窄图可用右键菜单打开裁剪和图注。
+- 编辑图注时显示当前图块的首尾注释。在结束注释末尾按 **Enter**，在图块外新建一行。也可从图片菜单选择 **编辑 Markdown** 到达标记。
+- 单击选中图片后按 **Shift+Tab**，将整块图文升一级。按 **Tab** 返回刚离开的原位置，或缩进到紧邻在前的合法 Bullet。图片菜单也提供当前可用的移动操作。每次移动可一步撤销。
 
 ## 通过 BRAT 安装
 
@@ -132,53 +91,24 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## 语法
 
-裁剪对话框自动写入注释。移动裁剪过的图片时，将这一行的图片引用和注释一起移动。
+开头和结尾分别是一条 HTML 注释。开头下一行放一张 Wiki 或 Markdown 图片，后面可以写 Markdown 图注。裁剪坐标是相对于原图的比例。
 
 ```markdown
-![[beam.png|251]] <!-- live-image-editor-peng:v1 {"crop":[0.15,0.2,0.6,0.5]} -->
+<!-- live-image-figure:v1 {"crop":{"x":0.25,"y":0.25,"width":0.5,"height":0.25}} -->
+![[beam.png|320]]
+
+**简支梁受力图。** 详见 [[结构力学]]。
+
+<!-- /live-image-figure -->
 ```
 
-图注示例：
+只有图注时，开头可写为 `<!-- live-image-figure:v1 -->`。停用插件后，Obsidian 显示原图和图注正文。旧裁剪、图注标记按普通 Markdown 显示。
 
+### 列表和 Canvas
 
-````markdown
-![[beam.png|300]]
-<!-- image-caption:start -->
-**图 1：简支梁受力分析**
+列表项的文字末尾只有一张图时，第一次编辑会把图移到原列表项的续行。标题及时间戳链接跟随原列表项。如果希望图块自带一个 Bullet，可在子 Bullet 的第一行写开头注释，从下一行起把图片、图注与结束注释对齐到该子项的正文列。
 
-详见 [[结构力学]]。跨中弯矩为 $M_{\max}=FL/4$。
-
-<!-- image-caption:end -->
-````
-
-在列表内，让图片、标记和正文都归属同一个列表项。标记和正文使用该列表项的续行缩进。
-
-````markdown
-- 一级知识点
-  - 二级知识点
-
-    ![[beam.png]]
-    <!-- image-caption:start -->
-    **图 2：受力图**
-
-    $$
-    M_{\max}=\frac{FL}{4}
-    $$
-
-    <!-- image-caption:end -->
-````
-
-一张图片独占一行。点击加号后，开始标记紧接图片下一行，光标落在图注输入行。结束标记前留一空行，图注以列表结尾时尤其需要。标记之间是原生 Markdown，Obsidian 会索引其中的内部链接。手工移动图片时，请一并移动图注。
-
-## 列表与缩进
-
-在 **Live Preview** 中，将光标放在单张图片所在行，或选中该图片引用。按 **Tab** 缩进，按 **Shift+Tab** 反缩进。图片已关联完整的图注时，图注会跟随新的列表归属，保留图注内的段落、列表缩进、公式和链接。每次移动可用 **⌘Z** 一次撤销、用 **⇧⌘Z** 一次重做。
-
-独占 Bullet 的图片和位于 Bullet 续行的图片都适用。续行按键如果会让图片脱离无序列表、变成缩进代码，或无法保持原图和原图注的对应，图片和图注留在原位。有序列表、多行或多光标选区、无图注图片、未闭合图注和源码模式继续使用 Obsidian 的原生按键行为。
-
-## 兼容性
-
-本版本的适用范围是普通正文和列表。表格、Callout、嵌入笔记以及多图同在一行时，使用各自的原生或第三方交互。第三方图注插件可以与本插件并存，同一张图可能显示两条图注。移动端、较旧的 Obsidian 版本和第三方 Markdown 扩展的渲染效果尚未验收。
+双击 Canvas 中的 Markdown 文件卡片或文本卡片进入编辑。文件卡片写回源笔记，文本卡片写回自身。文本卡片内嵌入的笔记可显示图块，编辑时请打开源笔记。直接拖入的图片文件卡片、表格、引用与 Callout 使用原生渲染。
 
 ## 开发与验证
 

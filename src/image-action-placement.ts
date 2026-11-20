@@ -5,13 +5,13 @@ interface Bounds {
   bottom: number;
 }
 
-interface ActionPosition {
+export interface ActionPosition {
   left: number;
   top: number;
   size: number;
 }
 
-const preferredSize = 24;
+const preferredSize = 20;
 const minimumSize = 16;
 export const imageActionGap = 4;
 
@@ -70,4 +70,15 @@ function cornerPosition(picture: Bounds, clip: Bounds, controls: readonly Bounds
     }
     if (closest) return closest;
   }
+}
+
+export function adjacentActionPosition(picture: Bounds, clip: Bounds, controls: readonly Bounds[]): ActionPosition | undefined {
+  const left = Math.max(picture.left, clip.left);
+  const top = picture.bottom;
+  const size = preferredSize;
+  if (picture.right <= clip.left || picture.left >= clip.right || picture.bottom <= clip.top || top + size > clip.bottom ||
+      left + size > clip.right) return;
+  if (controls.some(control => left < control.right && left + size > control.left &&
+      top < control.bottom && top + size > control.top)) return;
+  return { left, top, size };
 }

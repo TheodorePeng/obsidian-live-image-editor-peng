@@ -1,12 +1,10 @@
 import type { Text } from "@codemirror/state";
-import { cropMarker, type CropMarker } from "./crop-state";
 import { parseDocument } from "./markdown-source";
 
 export interface ImageReference {
   from: number;
   to: number;
   target: string;
-  marker?: CropMarker;
 }
 
 interface ImageIndex {
@@ -35,7 +33,7 @@ export function imageReferences(doc: Text): ImageIndex {
         ? doc.sliceString(url.from, url.to).replace(/^<|>$/g, "") : undefined;
       if (!target || doc.lineAt(from).number !== doc.lineAt(to).number) return false;
 
-      const reference = { from, to, target, marker: cropMarker(doc, to) };
+      const reference = { from, to, target };
       references.push(reference);
       const line = doc.lineAt(from).number;
       const existing = lines.get(line);

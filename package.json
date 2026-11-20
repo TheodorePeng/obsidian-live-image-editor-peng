@@ -1,6 +1,6 @@
 {
   "name": "live-image-editor-peng",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
   "description": "Crop local images non-destructively and add Markdown captions in Live Preview and Reading View.",

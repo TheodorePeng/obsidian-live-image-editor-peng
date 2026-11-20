@@ -1,12 +1,12 @@
 import { StateEffect, StateField, Transaction, type Text } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
-import { columns, type CaptionSource } from "./caption-source";
+import { columns, type Figure } from "./figure-source";
 import { captionClass, refreshMath } from "./figure-layout";
 import { readIndentationGuides } from "./indentation-guides";
 
 const body = `${captionClass}--native-line`;
 const spacer = `${captionClass}--native-spacer`;
-const hidden = `${captionClass}--native-marker`;
+const hidden = `${captionClass}--native-gap`;
 const placeholder = `${captionClass}--native-empty`;
 const mathClass = `${captionClass}--native-math`;
 const aligned = `${captionClass}--native-aligned`;
@@ -127,7 +127,7 @@ export class NativeCaptionLines {
   private doc?: Text;
   private widths = new Map<number, FigureGeometry>();
 
-  update(view: EditorView, captions: Iterable<CaptionSource>, images: ReadonlyMap<number, HTMLImageElement>, observed: Set<HTMLElement>): void {
+  update(view: EditorView, figures: readonly Figure[], images: ReadonlyMap<number, HTMLImageElement>, revealed?: number): void {
     const { state } = view;
     const { doc, selection } = state;
     if (doc !== this.doc) {
@@ -151,47 +151,53 @@ export class NativeCaptionLines {
       const number = doc.lineAt(view.posAtDOM(row)).number;
       (row.hasClass("cm-line") ? rows : mathByLine).set(number, row);
     }
-    for (const caption of captions) {
-      if (!caption.closed || !caption.image) continue;
-      if (caption.endLine < firstVisible || caption.openLine > lastVisible) continue;
-      let last = caption.endLine - 1;
-      while (last > caption.openLine && !doc.line(last).text.trim()) last--;
-      const image = images.get(caption.image.from);
+    for (const figure of figures) {
+      const imageLine = doc.lineAt(figure.image.from).number;
+      const closingLine = doc.lineAt(figure.closing.from).number;
+      if (closingLine < firstVisible || imageLine > lastVisible) continue;
+      const image = images.get(figure.image.from);
       const picture = image?.getBoundingClientRect();
       const imageRow = image?.closest<HTMLElement>(".cm-line");
       if (image && picture?.width && picture.height && imageRow) {
-        observed.add(image);
         const left = imageRow.getBoundingClientRect().left;
-        this.widths.set(caption.image.from, {
+        this.widths.set(figure.image.from, {
           offset: picture.left - contentLeft,
           width: picture.width,
           font: imageRow.win.getComputedStyle(imageRow).fontSize,
           guides: readIndentationGuides(imageRow).map(({ left: guideLeft, width, color }) => ({ offset: guideLeft - left, width, color }))
         });
       }
-      const cached = this.widths.get(caption.image.from);
+      const cached = this.widths.get(figure.image.from);
       if (!cached) continue;
       // When the image is offscreen, its cached guides must not outlive the editor setting.
       const size = hasNativeGuideMarkers ? cached : { ...cached, guides: [] };
       const gutter = Math.max(0, size.offset);
       const width = Math.min(size.width, Math.max(0, contentWidth - gutter));
       if (!width) continue;
-      for (let n = Math.max(firstVisible, caption.openLine); n <= Math.min(lastVisible, caption.endLine); n++) {
+      let first = imageLine + 1;
+      let last = closingLine - 1;
+      while (first <= last && !doc.line(first).text.trim()) first++;
+      while (last >= first && !doc.line(last).text.trim()) last--;
+      const emptyLine = first > last ? Math.min(imageLine + 2, closingLine - 1) : undefined;
+      const editing = revealed === figure.from;
+      const hintLine = editing ? undefined : emptyLine === imageLine ? closingLine : emptyLine;
+      for (let n = Math.max(firstVisible, imageLine + 1); n <= Math.min(lastVisible, closingLine); n++) {
         const line = doc.line(n);
         const selected = selection.ranges.some(range => range.from <= line.to && range.to >= line.from);
         const math = mathByLine.get(n);
-        if (math && n > caption.openLine && n <= last) {
+        if (math && n >= first && n <= last) {
           this.styleMath(math, gutter, width, base, alignGuides(size).guides);
           nextMath.add(math);
         }
-        const boundary = n === caption.openLine || n === caption.endLine;
-        const trailing = n > last && n !== caption.openLine + 1;
-        const style = boundary || trailing || math ? (selected ? "" : hidden) :
-          last === caption.openLine && !selected ? placeholder : !line.text.trim() && !selected ? spacer : body;
+        const style = n === hintLine && !selected ? placeholder :
+          n === closingLine ? "" :
+          math ? hidden :
+          editing || selected ? body :
+          n < first || n > last ? hidden : !line.text.trim() ? spacer : body;
         if (!style) continue;
         const row = rows.get(n);
         const previous = row?.hasClass(aligned) ? previousStyles.get(line.from)?.alignment : undefined;
-        const alignment = style === body && row ? alignText(view, row, line.from, line.text, caption.image.indent, gutter, width, previous) : undefined;
+        const alignment = style === body && row ? alignText(view, row, line.from, line.text, figure.indent, gutter, width, previous) : undefined;
         const guides = style === hidden ? { guides: "none", guideShift: 0 } : alignGuides(size, row);
         styles.push({ from: line.from, style, gutter, width, base, border: row?.clientLeft ?? 0, font: size.font, ...guides, alignment });
       }

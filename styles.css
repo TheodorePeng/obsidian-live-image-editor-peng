@@ -15,6 +15,7 @@
 }
 
 .live-image-editor-peng__actions > button {
+  position: relative;
   box-sizing: border-box;
   display: grid;
   place-items: center;
@@ -38,8 +39,19 @@
 }
 
 .live-image-editor-peng__actions > button > svg {
-  width: min(11px, 72%);
-  height: min(11px, 72%);
+  position: relative;
+  width: 12px;
+  height: 12px;
+}
+
+.live-image-editor-peng__actions > button::before {
+  content: "";
+  position: absolute;
+  width: min(16px, 100%);
+  height: min(16px, 100%);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--background-primary) 75%, transparent);
+  pointer-events: none;
 }
 
 .live-image-editor-peng__actions > button:focus-visible {
@@ -98,7 +110,7 @@
   white-space: normal;
 }
 
-.markdown-source-view .cm-content > .image-caption-peng--native-marker {
+.markdown-source-view .cm-content > :is(.image-caption-peng--native-marker, .image-caption-peng--native-gap, .image-caption-peng--empty-boundary:not(.image-caption-peng--native-empty)) {
   block-size: 0 !important;
   min-block-size: 0 !important;
   line-height: 0;
@@ -150,12 +162,31 @@
   margin-block: 0;
 }
 
+.markdown-source-view .cm-content > .image-caption-peng--native-empty {
+  position: relative;
+  min-block-size: 1.45em;
+  line-height: 1.45;
+  cursor: text;
+}
+
 .markdown-source-view .cm-content > .image-caption-peng--native-empty::after {
   content: "添加图注内容";
   position: absolute;
   inset-inline-start: calc(var(--image-caption-gutter) - var(--image-caption-row-border, 0px) + 4px);
+  inset-inline-end: 4px;
+  inset-block-start: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--text-faint);
   pointer-events: none;
+}
+
+.markdown-source-view .image-caption-peng--native-line mjx-container:not([display="true"]) {
+  display: inline-block;
+  max-inline-size: calc(var(--image-caption-width) - 4px);
+  overflow-x: auto;
+  vertical-align: middle;
 }
 
 .markdown-preview-view .image-caption-peng--native-reading {
@@ -179,13 +210,6 @@
   padding-inline-start: calc(1.5em + var(--image-caption-padding, 4px));
 }
 
-
-.markdown-source-view .image-caption-peng--native-line mjx-container:not([display="true"]) {
-  display: inline-block;
-  max-inline-size: calc(var(--image-caption-width) - 4px);
-  overflow-x: auto;
-  vertical-align: middle;
-}
 
 img.live-image-editor-peng--cropped {
   object-view-box: var(--live-image-editor-crop-inset);
