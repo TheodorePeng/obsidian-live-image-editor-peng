@@ -1,7 +1,7 @@
 import { Text } from "@codemirror/state";
 import { type App, type MarkdownPostProcessorContext } from "obsidian";
 import { captionIndex, type ImageSource } from "./caption-source";
-import { captionClass, clearFigureSize, refreshMath, setFigureSize } from "./figure-layout";
+import { captionClass, clearFigureSize, figureContentLeft, refreshMath, setFigureSize } from "./figure-layout";
 
 const joinedImage = `${captionClass}__reading-image`;
 const joinedMedia = `${captionClass}__reading-media`;
@@ -133,9 +133,9 @@ export class ReadingFigure {
     if (!flow.hasClass(joinedImage)) flow.addClass(joinedImage);
     if (!frame.hasClass(joinedFrame)) frame.addClass(joinedFrame);
     // For nested list items the caption element is its own frame.
-    const left = frame === this.element ? frame.parentElement?.getBoundingClientRect().left : frame.getBoundingClientRect().left;
-    if (left === undefined) return;
-    setFigureSize(this.element, rectangle, rectangle.left - left);
+    const container = frame === this.element ? frame.parentElement : frame;
+    if (!container) return;
+    setFigureSize(this.element, rectangle, rectangle.left - figureContentLeft(container));
     refreshMath(this.element);
   }
 }

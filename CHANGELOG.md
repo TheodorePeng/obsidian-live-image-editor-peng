@@ -2,6 +2,11 @@
 
 本文件保留各版本的验收记录，正文为中文。发布版本的说明同时出现在 [GitHub Releases](https://github.com/TheodorePeng/obsidian-image-caption-peng/releases) 页面。
 
+## 0.1.8
+
+- 兼容 Better Heading Hierarchy 2.2.0 的标题缩进。Live Preview 的图注底色与 Bullet 补线使用相同坐标，消除左侧重复色块和引导线偏移。
+- 修复标题下图注的首行、换行、子列表和公式对齐。Reading View 则以容器内容区定位新旧格式的图注，保留图片与图注的对齐。
+
 ## 0.1.7
 
 - 修复 Live Preview 中注释图注的首行、换行文字和子列表符号越出图片底色的问题。图注内容对齐到图片内侧，保留子列表的悬挂缩进。

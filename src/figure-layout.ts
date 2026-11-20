@@ -6,6 +6,11 @@ function setCss(element: HTMLElement, property: string, value: string): void {
   if (element.style.getPropertyValue(property) !== value) element.setCssProps({ [property]: value });
 }
 
+export function figureContentLeft(container: HTMLElement): number {
+  const padding = Number.parseFloat(container.win.getComputedStyle(container).paddingLeft) || 0;
+  return container.getBoundingClientRect().left + container.clientLeft + padding;
+}
+
 export function setFigureSize(element: HTMLElement, picture: DOMRectReadOnly, offset: number): void {
   setCss(element, "--image-caption-width", `${picture.width}px`);
   setCss(element, "--image-caption-offset", `${offset}px`);

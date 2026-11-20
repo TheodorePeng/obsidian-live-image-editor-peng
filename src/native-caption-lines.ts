@@ -9,12 +9,16 @@ const spacer = `${captionClass}--native-spacer`;
 const hidden = `${captionClass}--native-marker`;
 const placeholder = `${captionClass}--native-empty`;
 const mathClass = `${captionClass}--native-math`;
+const aligned = `${captionClass}--native-aligned`;
 const gutterProperty = "--image-caption-gutter";
 const widthProperty = "--image-caption-width";
 const baseProperty = "--image-caption-base";
 const fontProperty = "--image-caption-editor-font";
 const guidesProperty = "--image-caption-native-guides";
 const guideShiftProperty = "--image-caption-native-guide-shift";
+const borderProperty = "--image-caption-row-border";
+const paddingProperty = "--image-caption-text-padding";
+const indentProperty = "--image-caption-text-indent";
 
 interface GuideGeometry {
   offset: number;
@@ -42,6 +46,7 @@ interface RowStyle {
   gutter: number;
   width: number;
   base: number;
+  border: number;
   font: string;
   guides: string;
   guideShift: number;
@@ -51,10 +56,10 @@ interface RowStyle {
 const setNativeRows = StateEffect.define<readonly RowStyle[]>();
 
 function rowAttributes(row: RowStyle): string {
-  const geometry = `${gutterProperty}:${row.gutter}px;${widthProperty}:${row.width}px;${baseProperty}:${row.base}px`;
+  const geometry = `${gutterProperty}:${row.gutter}px;${widthProperty}:${row.width}px;${baseProperty}:${row.base}px;${borderProperty}:${row.border}px`;
   const guides = `${fontProperty}:${row.font};${guidesProperty}:${row.guides};${guideShiftProperty}:${row.guideShift}px`;
   const alignment = row.alignment
-    ? `;padding-inline-start:${row.alignment.padding}px!important;text-indent:${row.alignment.indent}px!important`
+    ? `;${paddingProperty}:${row.alignment.padding}px;${indentProperty}:${row.alignment.indent}px`
     : "";
   return geometry + ";" + guides + alignment;
 }
@@ -67,7 +72,7 @@ export const nativeCaptionRows = StateField.define<{ styles: readonly RowStyle[]
     return {
       styles: update.value,
       decorations: Decoration.set(update.value.map(line => Decoration.line({
-        class: line.style,
+        class: line.alignment ? `${line.style} ${aligned}` : line.style,
         attributes: { style: rowAttributes(line) }
       }).range(line.from)), true)
     };
@@ -83,16 +88,23 @@ function alignText(view: EditorView, row: HTMLElement, lineFrom: number, text: s
   if (!first) return;
   const left = row.getBoundingClientRect().left;
   const computed = row.win.getComputedStyle(row);
-  const nativePadding = (Number.parseFloat(computed.paddingInlineStart) || 0) - (previous?.paddingShift ?? 0);
-  const nativeIndent = (Number.parseFloat(computed.textIndent) || 0) - (previous?.indentShift ?? 0);
-  const nativeFirst = first.left - left - (previous?.paddingShift ?? 0) - (previous?.indentShift ?? 0);
+  const border = row.clientLeft;
+  const padding = Number.parseFloat(computed.paddingInlineStart) || 0;
+  const indent = Number.parseFloat(computed.textIndent) || 0;
+  const inlinePadding = Number.parseFloat(row.style.paddingInlineStart);
+  const inlineIndent = Number.parseFloat(row.style.textIndent);
+  // Obsidian and other extensions can update their inline values without removing our decoration.
+  const nativePadding = Number.isFinite(inlinePadding) ? inlinePadding : padding - (previous?.paddingShift ?? 0);
+  const nativeIndent = Number.isFinite(inlineIndent) ? inlineIndent : indent - (previous?.indentShift ?? 0);
+  const nativeWrapStart = border + nativePadding;
+  const nativeFirst = first.left - left - (padding - nativePadding) - (indent - nativeIndent);
   const inset = Math.min(6, imageWidth / 8);
   const target = gutter + inset;
   const round = (offset: number) => Math.round(Math.max(0, offset) * 4) / 4;
   const ownLine = columns(whitespace) <= ownerIndent &&
     !row.querySelector(".cm-formatting-list, .cm-hmd-list-bullet");
   // Keep wrapped continuations on the same inset, and keep the native hanging indent of a caption's own lists.
-  const paddingShift = round(target - (ownLine ? nativePadding : Math.min(nativePadding, nativeFirst)));
+  const paddingShift = round(target - (ownLine ? nativeWrapStart : Math.min(nativeWrapStart, nativeFirst)));
   const indentShift = ownLine ? round(target - nativeFirst) - paddingShift : 0;
   if (!paddingShift && !indentShift) return;
   return { padding: nativePadding + paddingShift, indent: nativeIndent + indentShift, paddingShift, indentShift };
@@ -178,10 +190,10 @@ export class NativeCaptionLines {
           last === caption.openLine && !selected ? placeholder : !line.text.trim() && !selected ? spacer : body;
         if (!style) continue;
         const row = rows.get(n);
-        const previous = row?.hasClass(body) ? previousStyles.get(line.from)?.alignment : undefined;
+        const previous = row?.hasClass(aligned) ? previousStyles.get(line.from)?.alignment : undefined;
         const alignment = style === body && row ? alignText(view, row, line.from, line.text, caption.image.indent, gutter, width, previous) : undefined;
         const guides = style === hidden ? { guides: "none", guideShift: 0 } : alignGuides(size, row);
-        styles.push({ from: line.from, style, gutter, width, base, font: size.font, ...guides, alignment });
+        styles.push({ from: line.from, style, gutter, width, base, border: row?.clientLeft ?? 0, font: size.font, ...guides, alignment });
       }
     }
     for (const row of this.math) if (!nextMath.has(row)) this.clearMath(row);
@@ -191,7 +203,14 @@ export class NativeCaptionLines {
 
   private styleMath(row: HTMLElement, gutter: number, width: number, base: number, guides: string): void {
     if (!row.hasClass(mathClass)) row.addClass(body, mathClass);
-    for (const [property, value] of [[gutterProperty, `${gutter}px`], [widthProperty, `${width}px`], [baseProperty, `${base}px`], [guidesProperty, guides]]) {
+    const properties = {
+      [gutterProperty]: `${gutter}px`,
+      [widthProperty]: `${width}px`,
+      [baseProperty]: `${base}px`,
+      [borderProperty]: `${row.clientLeft}px`,
+      [guidesProperty]: guides
+    };
+    for (const [property, value] of Object.entries(properties)) {
       if (row.style.getPropertyValue(property) !== value) row.setCssProps({ [property]: value });
     }
     refreshMath(row);
@@ -208,7 +227,7 @@ export class NativeCaptionLines {
 
   private clearMath(row: HTMLElement): void {
     row.removeClass(body, mathClass);
-    for (const property of [gutterProperty, widthProperty, baseProperty, guidesProperty]) row.style.removeProperty(property);
+    for (const property of [gutterProperty, widthProperty, baseProperty, borderProperty, guidesProperty]) row.style.removeProperty(property);
     refreshMath(row);
   }
 

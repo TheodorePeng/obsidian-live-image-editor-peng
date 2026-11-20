@@ -202,9 +202,18 @@
   padding-inline-end: 4px;
   background: var(--image-caption-native-guides, none),
     linear-gradient(to right, transparent var(--image-caption-gutter), color-mix(in srgb, var(--background-secondary) 65%, var(--background-primary)) var(--image-caption-gutter));
+  /* Offsets are measured from the outer row edge, even when another plugin adds a transparent border. */
+  background-origin: border-box;
+  background-repeat: no-repeat;
   font-size: 0.875em;
   color: var(--text-muted);
   overflow-wrap: anywhere;
+}
+
+/* Keep our corrections separate from the host's inline list indentation. */
+.markdown-source-view.mod-cm6 .cm-content > .image-caption-peng--native-aligned {
+  padding-inline-start: var(--image-caption-text-padding) !important;
+  text-indent: var(--image-caption-text-indent) !important;
 }
 
 /* Keep the original em inset, and compensate for the static position moving with the text. */
@@ -221,15 +230,15 @@
   line-height: 0.55;
 }
 
-.markdown-source-view .cm-content > .image-caption-peng--native-math {
-  padding-inline-start: calc(var(--image-caption-gutter, 0px) + 4px);
+.markdown-source-view.mod-cm6 .cm-content > .image-caption-peng--native-line.image-caption-peng--native-math {
+  padding-inline-start: max(0px, calc(var(--image-caption-gutter) - var(--image-caption-row-border, 0px) + 4px));
   margin-block: 0;
 }
 
 .markdown-source-view .cm-content > .image-caption-peng--native-empty::after {
   content: "添加图注内容";
   position: absolute;
-  inset-inline-start: calc(var(--image-caption-gutter) + 4px);
+  inset-inline-start: calc(var(--image-caption-gutter) - var(--image-caption-row-border, 0px) + 4px);
   color: var(--text-faint);
   pointer-events: none;
 }

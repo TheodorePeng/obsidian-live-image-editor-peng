@@ -1,7 +1,7 @@
 import { Text } from "@codemirror/state";
 import { MarkdownRenderChild, type App, type MarkdownPostProcessorContext, type MarkdownSectionInformation } from "obsidian";
 import { captionIndex, type CaptionSource, type ImageSource } from "./caption-source";
-import { captionClass, clearFigureSize, refreshMath, setFigureSize } from "./figure-layout";
+import { captionClass, clearFigureSize, figureContentLeft, refreshMath, setFigureSize } from "./figure-layout";
 import { sameImage } from "./reading-layout";
 
 const nativeBlock = `${captionClass}--native-reading`;
@@ -202,7 +202,7 @@ class NativeReadingView {
         nextBlocks.add(block);
         block.addClass(nativeBlock);
         const container = block.parentElement ?? owner;
-        const left = container.getBoundingClientRect().left + container.clientLeft;
+        const left = figureContentLeft(container);
         setFigureSize(block, rect, Math.max(0, rect.left - left));
         refreshMath(block);
       }
