@@ -18,6 +18,8 @@ import { captionIndex, captionInsertion, captionLanguage, type CaptionSource, ty
 import { compactLinesField, setCompactLines, type CompactLines } from "./compact-lines";
 
 import { captionClass, clearFigureSize, refreshMath, setFigureSize } from "./figure-layout";
+import { NativeCaptionReading, NativeCaptionReadingSection } from "./native-caption-reading";
+import { NativeCaptionLines, nativeCaptionRows } from "./native-caption-lines";
 import { ReadingFigure } from "./reading-layout";
 import { imageActionPosition } from "./image-action-placement";
 import { captionIndentExtension } from "./indent-extension";
@@ -37,7 +39,7 @@ function captionAtElement(view: EditorView, element: HTMLElement): CaptionSource
   const offset = view.posAtDOM(element);
   const line = view.state.doc.lineAt(offset);
   const caption = captionIndex(view.state.doc).captions.get(line.number);
-  return caption?.closed ? caption : undefined;
+  return caption?.closed && caption.format === "fence" ? caption : undefined;
 }
 
 function imageAtElement(view: EditorView, element: HTMLImageElement): ImageSource | undefined {
@@ -202,6 +204,7 @@ class CaptionEditor {
   private readonly resizeObserver?: ResizeObserver;
   private readonly observedFigureElements = new Set<HTMLElement>();
   private readonly indentation = new CaptionIndentation();
+  private readonly nativeCaptionLines = new NativeCaptionLines();
   private readonly cssChanged: EventRef;
   private hovered?: { image: HTMLImageElement; from: number; doc: EditorView["state"]["doc"] };
   private pointer?: { x: number; y: number };
@@ -272,6 +275,7 @@ class CaptionEditor {
     this.resizeObserver?.disconnect();
     this.workspace.offref(this.cssChanged);
     this.indentation.clear();
+    this.nativeCaptionLines.clear();
     this.observedFigureElements.clear();
     this.button.removeEventListener("pointerdown", this.keepEditorFocus);
     this.button.removeEventListener("click", this.activate);
@@ -305,6 +309,7 @@ class CaptionEditor {
     }
     if (!livePreview(this.view)) {
       this.indentation.clear();
+      this.nativeCaptionLines.clear(this.view);
       this.observeFigureElements(new Set());
       this.applyCompactLines();
       return;
@@ -350,6 +355,7 @@ class CaptionEditor {
       const imageRow = renderedImage.closest<HTMLElement>(".cm-line.HyperMD-list-line");
       if (imageRow) indentPairs.push({ frame, imageRow, group, opening: opening.number });
     }
+    this.nativeCaptionLines.update(this.view, captionIndex(doc).captions.values(), images, visibleFigureElements);
     this.observeFigureElements(visibleFigureElements);
     this.applyCompactLines();
     const indentation: IndentationPair[] = [];
@@ -606,7 +612,7 @@ class CaptionEditor {
     if (!source) return;
 
     this.lastAction = { rect, until: Date.now() + 500 };
-    const { from, insert, cursor } = captionInsertion(doc, source);
+    const { from, insert, cursor } = captionInsertion(doc, source, "comment");
     this.view.dispatch({
       changes: { from, insert },
       selection: { anchor: cursor },
@@ -626,6 +632,11 @@ export default class ImageCaptionPlugin extends Plugin {
       blocks.set(element, block);
       context.addChild(block);
     });
-    this.registerEditorExtension([captionIndentExtension(), compactLinesField, ViewPlugin.define(view => new CaptionEditor(view, blocks, this.app.workspace))]);
+    const nativeReading = new NativeCaptionReading(this.app);
+    this.register(() => nativeReading.destroy());
+    this.registerMarkdownPostProcessor((section, context) => {
+      context.addChild(new NativeCaptionReadingSection(section, nativeReading, context));
+    });
+    this.registerEditorExtension([captionIndentExtension(), compactLinesField, nativeCaptionRows, ViewPlugin.define(view => new CaptionEditor(view, blocks, this.app.workspace))]);
   }
 }

@@ -4,13 +4,13 @@ Write Markdown captions under images in Obsidian. Author them in Live Preview, r
 
 ## Features
 
-- Hover an image in Live Preview and click the **+** in its lower-left corner to create an `image-caption` fence directly below the image, with the cursor already on the caption line. Click the caption text or its blank area to edit an existing caption.
+- Hover an image in Live Preview and click the **+** in its lower-left corner to create an HTML-marked caption directly below the image, with the cursor already on the caption line. Click the caption text or its blank area to edit an existing caption.
 - The button draws an 11 px monochrome cross inside a 24 px transparent hit area. It steps aside when native image tools or overlays occupy the lower-left corner, and it stays hidden on images that already have a caption.
 - A matched caption renders as a tinted strip attached under the image in both Live Preview and Reading View. It wraps to the image's actual displayed width and keeps following the image when the width changes.
 - Captions support multiple paragraphs, emphasis, internal and external links, lists, and inline or block formulas. A formula wider than the image scrolls horizontally inside the formula area.
 - Wiki images, native size parameters, and local or remote Markdown images are supported. Paragraph and list-item boundaries stop the match, so unrelated text is never captured.
-- Empty captions show a placeholder in Live Preview and disappear in Reading View. A caption that loses its image keeps its text and is marked as unlinked.
-- Adding and editing integrate with Obsidian's undo and redo. To delete a caption, edit the note and remove the whole fence.
+- Empty captions show a placeholder in Live Preview and disappear in Reading View. An unpaired caption retains its text.
+- Adding and editing integrate with Obsidian's undo and redo. To delete a caption, remove its two markers and the text between them. For a legacy caption, remove its entire fence.
 
 ## Install with BRAT
 
@@ -33,40 +33,42 @@ Copy `main.js`, `manifest.json`, and `styles.css` from the [latest release](http
 
 ````markdown
 ![[beam.png|300]]
-```image-caption
+<!-- image-caption:start -->
 **Figure 1: Simply supported beam under load**
 
 See [[Structural Mechanics]]. The mid-span moment is $M_{\max}=FL/4$.
-```
+
+<!-- image-caption:end -->
 ````
 
-Inside a list, keep the fence and the image in the same list item. The fence and its body use the list item's continuation indent.
+Inside a list, keep the image, both markers, and the caption text in the same list item. Indent the markers and text to the list item's continuation column.
 
 ````markdown
 - First-level topic
   - Second-level topic
 
     ![[beam.png]]
-    ```image-caption
+    <!-- image-caption:start -->
     **Figure 2: Free-body diagram**
 
     $$
     M_{\max}=\frac{FL}{4}
     $$
-    ```
+
+    <!-- image-caption:end -->
 ````
 
-One image occupies its own line. Clicking the plus creates the fence on the line right after the image and puts the cursor on the caption line. A hand-written fence, or an existing one, may also sit after a blank line. Paragraph and list-item boundaries stop the match. Wiki images, native size parameters, and local or remote Markdown images are supported. Captions accept multiple paragraphs, emphasis, internal and external links, lists, and inline or block formulas.
+One image occupies its own line. The plus inserts the opening marker immediately after the image and focuses the caption line. Leave a blank line before the closing marker, especially after a list inside the caption. Text between the comments is native Markdown, so Obsidian indexes its internal links. Existing `image-caption` code fences remain editable and keep their original syntax. When moving an image manually, move its caption with it.
 
 ## Lists and indentation
 
-In **Live Preview**, put the cursor on the line of a single image, or select that image reference. Press **Tab** to indent and **Shift+Tab** to outdent. When the image is attached to a closed `image-caption` fence, the caption follows the image to its new list position and keeps its paragraphs, list indentation, formulas, and links. Each move is one step for **⌘Z** and one step for **⇧⌘Z**.
+In **Live Preview**, put the cursor on the line of a single image, or select that image reference. Press **Tab** to indent and **Shift+Tab** to outdent. When the image has a closed caption in either format, the caption follows the image to its new list position and keeps its paragraphs, list indentation, formulas, and links. Each move is one step for **⌘Z** and one step for **⇧⌘Z**.
 
-This works both for an image that owns its bullet and for an image on a continuation line of a bullet. If a keypress would detach the image from the unordered list, turn it into indented code, or break the pairing between image and caption, the image and its fence stay where they are. Ordered lists, multi-line or multi-cursor selections, images without a caption, unclosed fences, and Source mode keep Obsidian's native key behavior.
+This works both for an image that owns its bullet and for an image on a continuation line of a bullet. If a keypress would detach the image from the unordered list, turn it into indented code, or break the pairing between image and caption, the image and its caption stay where they are. Ordered lists, multi-line or multi-cursor selections, images without a caption, unclosed captions, and Source mode keep Obsidian's native key behavior.
 
 ## Compatibility
 
-The scope of this release is plain body text and lists. Tables, callouts, embedded notes, and multiple images on one line use their own native or third-party interaction. A third-party caption plugin can coexist with a fence, in which case one image may show two captions. Mobile, older Obsidian versions, and third-party Markdown extensions have not been verified.
+The scope of this release is plain body text and lists. Tables, callouts, embedded notes, and multiple images on one line use their own native or third-party interaction. A third-party caption plugin can coexist with this plugin, in which case one image may show two captions. Mobile, older Obsidian versions, and third-party Markdown extensions have not been verified.
 
 ## Development
 
@@ -84,13 +86,13 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## 功能
 
-- 在 Live Preview 中把鼠标移到还没有图注的图片上，点击图片内左下角的 **+**，直接在紧接图片的新围栏里输入图注。已有图注的图片，点击图注正文或空白处即可编辑。
+- 在 Live Preview 中把鼠标移到还没有图注的图片上，点击图片内左下角的 **+**，直接输入图注。两条 HTML 注释标出图注的范围。已有图注的图片，点击图注正文或空白处即可编辑。
 - 按钮使用 11 px 的单色十字和 24 px 的透明点击区。图片工具或浮层占用左下角时，按钮在图片内避让。图片太小、没有安全空位时，优先保留现有控件的操作空间。已有图注时加号隐藏。
 - 已匹配的图注以主题浅底色条贴在图片下方，Live Preview 和 Reading View 一致。底色条随图片的实际显示宽度换行，图片宽度变化时继续跟随。
 - 图注支持多段落、强调、内外部链接、列表与行内／块级公式。宽公式可以在公式区域横向滚动。
 - 支持 Wiki 图片、原生尺寸参数以及本地和远程 Markdown 图片。段落和列表项边界会中断匹配，不会误收无关文本。
-- 空图注在 Live Preview 中显示「添加图注内容」，在 Reading View 中隐藏。图注失联后仍保留正文，Live Preview 标记「未关联图片」。
-- 添加和编辑可以使用 Obsidian 的撤销／重做。删除图注时，编辑并移除整个围栏。
+- 空图注在 Live Preview 中显示「添加图注内容」，在 Reading View 中隐藏。图注失联后仍保留正文。
+- 添加和编辑可以使用 Obsidian 的撤销／重做。删除图注时，移除两条标记和其中的正文。旧格式请移除整个围栏。
 
 ## 通过 BRAT 安装
 
@@ -113,40 +115,42 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ````markdown
 ![[beam.png|300]]
-```image-caption
+<!-- image-caption:start -->
 **图 1：简支梁受力分析**
 
 详见 [[结构力学]]。跨中弯矩为 $M_{\max}=FL/4$。
-```
+
+<!-- image-caption:end -->
 ````
 
-列表内保持围栏和图片位于同一个列表项。围栏及正文使用列表项的续行缩进。
+在列表内，让图片、标记和正文都归属同一个列表项。标记和正文使用该列表项的续行缩进。
 
 ````markdown
 - 一级知识点
   - 二级知识点
 
     ![[beam.png]]
-    ```image-caption
+    <!-- image-caption:start -->
     **图 2：受力图**
 
     $$
     M_{\max}=\frac{FL}{4}
     $$
-    ```
+
+    <!-- image-caption:end -->
 ````
 
-一张图片独占一行。点击加号会在紧接图片的下一行创建围栏，光标落在围栏内的输入行。手写或已有的围栏也可以与图片间隔空行。段落和列表项边界会中断匹配。支持 Wiki 图片、原生尺寸参数以及本地和远程 Markdown 图片。图注支持多段落、强调、内外部链接、列表与行内／块级公式。
+一张图片独占一行。点击加号后，开始标记紧接图片下一行，光标落在图注输入行。结束标记前留一空行，图注以列表结尾时尤其需要。标记之间是原生 Markdown，Obsidian 会索引其中的内部链接。旧 `image-caption` 代码围栏仍可显示和编辑，编辑时保留原格式。手工移动图片时，请一并移动图注。
 
 ## 列表与缩进
 
-在 **Live Preview** 中，将光标放在单张图片所在行，或选中该图片引用。按 **Tab** 缩进，按 **Shift+Tab** 反缩进。图片已关联闭合的 `image-caption` 围栏时，图注会跟随新的列表归属，保留图注内的段落、列表缩进、公式和链接。每次移动可用 **⌘Z** 一次撤销、用 **⇧⌘Z** 一次重做。
+在 **Live Preview** 中，将光标放在单张图片所在行，或选中该图片引用。按 **Tab** 缩进，按 **Shift+Tab** 反缩进。图片已关联完整的图注时，图注会跟随新的列表归属，保留图注内的段落、列表缩进、公式和链接。每次移动可用 **⌘Z** 一次撤销、用 **⇧⌘Z** 一次重做。
 
-独占 Bullet 的图片和位于 Bullet 续行的图片都适用。续行按键如果会让图片脱离无序列表、变成缩进代码，或无法保持原图和原图注的对应，图片和围栏留在原位。有序列表、多行或多光标选区、无图注图片、未闭合围栏和源码模式继续使用 Obsidian 的原生按键行为。
+独占 Bullet 的图片和位于 Bullet 续行的图片都适用。续行按键如果会让图片脱离无序列表、变成缩进代码，或无法保持原图和原图注的对应，图片和图注留在原位。有序列表、多行或多光标选区、无图注图片、未闭合图注和源码模式继续使用 Obsidian 的原生按键行为。
 
 ## 兼容性
 
-本版本的适用范围是普通正文和列表。表格、Callout、嵌入笔记以及多图同在一行时，使用各自的原生或第三方交互。第三方图注插件可以与围栏并存，同一张图可能显示两条图注。移动端、较旧的 Obsidian 版本和第三方 Markdown 扩展的渲染效果尚未验收。
+本版本的适用范围是普通正文和列表。表格、Callout、嵌入笔记以及多图同在一行时，使用各自的原生或第三方交互。第三方图注插件可以与本插件并存，同一张图可能显示两条图注。移动端、较旧的 Obsidian 版本和第三方 Markdown 扩展的渲染效果尚未验收。
 
 ## 开发与验证
 

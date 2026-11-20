@@ -117,7 +117,7 @@
   margin-block-end: 0;
 }
 
-.markdown-preview-view .image-caption-peng__reading-media {
+.markdown-preview-view :is(.image-caption-peng__reading-media, .image-caption-peng__reading-image img) {
   vertical-align: bottom;
 }
 
@@ -125,7 +125,7 @@
   margin-block-start: 0;
 }
 
-.image-caption-peng .image-caption-peng__scroll-math {
+.image-caption-peng__scroll-math {
   display: block;
   box-sizing: border-box;
   max-inline-size: 100%;
@@ -133,7 +133,7 @@
   overflow-y: hidden;
 }
 
-.image-caption-peng .image-caption-peng__scroll-math:not([display="true"]) {
+.image-caption-peng__scroll-math:not([display="true"]) {
   display: inline-block;
   vertical-align: middle;
 }
@@ -181,4 +181,84 @@
   bottom: 0;
   width: var(--image-caption-indent-width);
   background: var(--image-caption-indent-color);
+}
+
+.markdown-source-view .cm-content > .image-caption-peng--native-marker {
+  block-size: 0 !important;
+  min-block-size: 0 !important;
+  line-height: 0;
+  margin-block: 0 !important;
+  padding-block: 0 !important;
+  border-block: 0;
+  visibility: hidden;
+}
+
+/* Keep native caption rows on the editor text column when readable line width centers ordinary rows. */
+.markdown-source-view.mod-cm6 .cm-editor .cm-contentContainer.cm-contentContainer > .cm-content > div:is(.image-caption-peng--native-line, .image-caption-peng--native-spacer, .image-caption-peng--native-empty) {
+  box-sizing: border-box;
+  inline-size: calc(var(--image-caption-gutter) + var(--image-caption-width)) !important;
+  max-inline-size: calc(var(--image-caption-gutter) + var(--image-caption-width)) !important;
+  margin-inline: var(--image-caption-base, 0px) 0 !important;
+  padding-inline-end: 4px;
+  background: var(--image-caption-native-guides, none),
+    linear-gradient(to right, transparent var(--image-caption-gutter), color-mix(in srgb, var(--background-secondary) 65%, var(--background-primary)) var(--image-caption-gutter));
+  font-size: 0.875em;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Keep the original em inset, and compensate for the static position moving with the text. */
+.markdown-source-view .cm-content > .image-caption-peng--native-line .cm-indent {
+  font-size: var(--image-caption-editor-font, inherit);
+}
+
+.markdown-source-view .cm-content > .image-caption-peng--native-line .cm-indent::before {
+  translate: calc(-1 * var(--image-caption-native-guide-shift, 0px)) 0;
+}
+
+.markdown-source-view .cm-content > .image-caption-peng--native-spacer {
+  min-block-size: 0;
+  line-height: 0.55;
+}
+
+.markdown-source-view .cm-content > .image-caption-peng--native-math {
+  padding-inline-start: calc(var(--image-caption-gutter, 0px) + 4px);
+  margin-block: 0;
+}
+
+.markdown-source-view .cm-content > .image-caption-peng--native-empty::after {
+  content: "添加图注内容";
+  position: absolute;
+  inset-inline-start: calc(var(--image-caption-gutter) + 4px);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.markdown-preview-view .image-caption-peng--native-reading {
+  display: flow-root;
+  color: var(--text-muted);
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+  margin-block: 0;
+  border-radius: 0;
+}
+
+.markdown-preview-view .image-caption-peng--native-reading > :first-child {
+  margin-block-start: 0;
+}
+
+.markdown-preview-view .image-caption-peng--native-reading > :last-child {
+  margin-block-end: 0;
+}
+
+.markdown-preview-view :is(ul, ol).image-caption-peng--native-reading {
+  padding-inline-start: calc(1.5em + var(--image-caption-padding, 4px));
+}
+
+
+.markdown-source-view .image-caption-peng--native-line mjx-container:not([display="true"]) {
+  display: inline-block;
+  max-inline-size: calc(var(--image-caption-width) - 4px);
+  overflow-x: auto;
+  vertical-align: middle;
 }

@@ -22,7 +22,7 @@ function decodeLink(target: string): string {
   }
 }
 
-function sameImage(app: App, image: HTMLImageElement, source: ImageSource, path: string): boolean {
+export function sameImage(app: App, image: HTMLImageElement, source: ImageSource, path: string): boolean {
   const expected = resolveTarget(app, source.target, path);
   if (!expected || !URL.canParse(expected) || !URL.canParse(image.src)) return false;
   const lhs = new URL(expected);
@@ -65,7 +65,7 @@ function findPair(app: App, element: HTMLElement, source: string, context: Markd
     previewDocuments.set(root, snapshot);
   }
   const captions = [...captionIndex(snapshot.doc).captions.values()]
-    .filter(caption => caption.closed && caption.openLine >= info.lineStart + 1 && caption.openLine <= info.lineEnd + 1);
+    .filter(caption => caption.format === "fence" && caption.closed && caption.openLine >= info.lineStart + 1 && caption.openLine <= info.lineEnd + 1);
   const widgets = [...section.querySelectorAll<HTMLElement>(`.${captionClass}`)].filter(widget =>
     !widget.parentElement?.closest(`.${captionClass}, .markdown-embed`));
   if (captions.length !== widgets.length) return;

@@ -18,7 +18,7 @@ export interface IndentationPair {
   opening?: HTMLElement;
 }
 
-function guides(row: HTMLElement): Guide[] {
+export function readIndentationGuides(row: HTMLElement): Guide[] {
   const win = row.doc.defaultView;
   if (!win) return [];
   return Array.from(row.querySelectorAll<HTMLElement>(".cm-indent")).flatMap(marker => {
@@ -45,14 +45,14 @@ export class CaptionIndentation {
     const nextRows = new Map<HTMLElement, HTMLElement[]>();
     const nextOverlays = new Map<HTMLElement, HTMLElement>();
     for (const { imageRow, frame, opening } of pairs) {
-      const references = guides(imageRow);
+      const references = readIndentationGuides(imageRow);
       if (!references.length) continue;
       const imageBox = imageRow.getBoundingClientRect();
       const captionBox = frame.getBoundingClientRect();
       if (captionBox.height <= 0 || Math.abs(captionBox.top - imageBox.bottom) > 6) continue;
 
       if (opening && opening.hasClass("image-caption-peng--compact-line")) {
-        const native = guides(opening);
+        const native = readIndentationGuides(opening);
         const box = opening.getBoundingClientRect();
         if (box.height === 0 && Math.abs(box.top - imageBox.bottom) <= 1 &&
             native.length === references.length && native.every((line, index) => {

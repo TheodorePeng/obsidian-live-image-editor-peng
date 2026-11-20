@@ -2,6 +2,18 @@
 
 本文件保留各版本的验收记录，正文为中文。发布版本的说明同时出现在 [GitHub Releases](https://github.com/TheodorePeng/obsidian-image-caption-peng/releases) 页面。
 
+## 0.1.7
+
+- 修复 Live Preview 中注释图注的首行、换行文字和子列表符号越出图片底色的问题。图注内容对齐到图片内侧，保留子列表的悬挂缩进。
+- 依据图片行的原生位置对齐缩进线，并续接空行和块公式处的缺口。关闭 Obsidian 的缩进引导线设置时，补线一同消失。
+
+## 0.1.6
+
+- 新建图注默认使用两条 HTML 注释标记，正文保留为原生 Markdown。开始标记紧接图片，结束标记前留空行。旧 `image-caption` 围栏仍可原样显示、编辑和缩进。
+- 在 macOS Obsidian 1.15.1 的测试 Vault 验证了正文、一至五级 Bullet、续行图片、实际分栏和长笔记滚动。实测插入聚焦、折叠展开、Tab / Shift+Tab 以及单步撤销和重做。
+- Live Preview 和 Reading View 均实测图注贴合图片，覆盖紧凑列表、原生内链和窄图中的宽公式。真实重命名测试验证 Wiki Link 与 Markdown 内链都会由 Obsidian 更新。
+- 27 项自动化测试、类型检查、ESLint 和构建通过。本版支持下方图注，旧格式继续兼容。未纳入 PDF 导出或移动端验收。
+
 ## 0.1.5
 
 - 在 macOS Obsidian 的测试 Vault 验证左下角十字为 11 px，点击区为 24 px，显示、悬停和按下时背景均透明。已有图注时加号隐藏。

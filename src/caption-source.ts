@@ -3,6 +3,9 @@ import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser } from "@lezer/markdown";
 
 export const captionLanguage = "image-caption";
+export const captionStart = "<!-- image-caption:start -->";
+export const captionEnd = "<!-- image-caption:end -->";
+export type CaptionFormat = "fence" | "comment";
 const markdown = parser.configure(GFM);
 const imageExtension = /\.(?:avif|bmp|gif|heic|ico|jpe?g|png|svg|tiff?|webp)$/i;
 
@@ -17,9 +20,13 @@ export interface ImageSource extends Range {
   indent: number;
   target: string;
   unordered: boolean;
+  ownerLine: number;
 }
 
 export interface CaptionSource {
+  format: CaptionFormat;
+  blocks?: readonly string[];
+  terminal?: boolean;
   container: string;
   openLine: number;
   endLine: number;
@@ -105,7 +112,7 @@ function parseDocument(source: string) {
     enter(node) {
       if (node.name !== "CommentBlock") return;
       const comment = parsedSource.slice(node.from, node.to).trim();
-      if (comment.startsWith("<!-- vml ") && layoutStart === undefined) layoutStart = node.from;
+      if ((comment === "<!-- vml -->" || comment.startsWith("<!-- vml ")) && layoutStart === undefined) layoutStart = node.from;
       if (comment === "<!-- /vml -->" && layoutStart !== undefined) {
         layouts.push({ from: layoutStart, to: node.to });
         layoutStart = undefined;
@@ -148,6 +155,7 @@ function paragraphImages(doc: Text, paragraph: SyntaxNode, parent: SyntaxNode, i
   const indent = listIndent(doc, parent);
   const container = containerKey(parent);
   const unordered = parent.parent?.name === "BulletList";
+  const ownerLine = parent.name === "ListItem" ? doc.lineAt(parent.from).number : 0;
   const markdownImages = new Map<number, { to: number; target: string }>();
   for (let child = paragraph.firstChild; child; child = child.nextSibling) {
     if (child.name === "Image" && child.getChildren("LinkMark").some(mark => doc.sliceString(mark.from, mark.to) === "(")) {
@@ -172,7 +180,7 @@ function paragraphImages(doc: Text, paragraph: SyntaxNode, parent: SyntaxNode, i
     const standard = markdownImages.get(from);
     const target = wikiTarget && imageExtension.test(wikiTarget) ? wikiTarget :
       standard?.to === to ? standard.target : undefined;
-    if (target) images.set(number, { from, to, line: number, indent, container, target, unordered });
+    if (target) images.set(number, { from, to, line: number, indent, container, target, unordered, ownerLine });
   }
 }
 
@@ -195,8 +203,33 @@ function readCaption(doc: Text, fence: SyntaxNode, parent: SyntaxNode): CaptionS
     }
   }
   return {
-    openLine: open.number, endLine: end.number, container: containerKey(parent), closed, input, body: lines.join("\n")
+    format: "fence", openLine: open.number, endLine: end.number, container: containerKey(parent), closed, input, body: lines.join("\n")
   };
+}
+
+function commentCaption(doc: Text, start: SyntaxNode, end: SyntaxNode | undefined, container: string): CaptionSource {
+  const opening = doc.lineAt(start.from);
+  const openLine = opening.number;
+  const endLine = end ? doc.lineAt(end.from).number : openLine;
+  const indent = columns(doc.sliceString(opening.from, start.from));
+  const lines = [];
+  let input = opening.to;
+  for (let n = openLine + 1; n < endLine; n++) {
+    const line = doc.line(n);
+    const removed = removeIndent(line.text, indent);
+    if (n === openLine + 1) input = line.from + removed.offset;
+    lines.push(removed.content);
+  }
+  while (lines.length && !lines.at(-1)?.trim()) lines.pop();
+  const blocks = [];
+  for (let node = start.nextSibling; node && end && node.from < end.from; node = node.nextSibling) {
+    const raw = doc.sliceString(node.from, node.to);
+    if (node.name !== "CommentBlock") blocks.push(node.name === "Paragraph" && /^\$\$(?:[ \t]|\n|$)/.test(raw) ? "Math" : node.name);
+  }
+  // Obsidian treats a closing comment immediately after a list as a lazy continuation of its last item.
+  const needsSeparator = ["BulletList", "OrderedList"].includes(blocks.at(-1) ?? "");
+  const closed = !!end && (!needsSeparator || !doc.line(endLine - 1).text.trim());
+  return { format: "comment", openLine, endLine, closed, container, body: lines.join("\n"), input, blocks, terminal: closed && !end?.nextSibling };
 }
 
 const indexes = new WeakMap<Text, CaptionIndex>();
@@ -208,21 +241,52 @@ export function captionIndex(doc: Text): CaptionIndex {
   const images = new Map<number, ImageSource>();
   const captions = new Map<number, CaptionSource>();
   const captionedImages = new Map<number, CaptionSource>();
+  const starts = new Map<string, SyntaxNode>();
+  const ambiguous = new Set<string>();
   parseDocument(doc.toString()).iterate({
     enter({ name, node }) {
-      if (name !== "Paragraph" && name !== "FencedCode") return;
+      if (name !== "Paragraph" && name !== "FencedCode" && name !== "CommentBlock") return;
       const container = containingBlock(node);
       if (!container) return false;
       if (name === "Paragraph") {
         paragraphImages(doc, node, container, images);
-      } else {
+      } else if (name === "FencedCode") {
         const caption = readCaption(doc, node, container);
         if (caption) captions.set(caption.openLine, caption);
+      } else {
+        const line = doc.lineAt(node.from);
+        const marker = line.text.trim();
+        if (doc.sliceString(node.from, node.to).trim() !== marker) return false;
+        const key = containerKey(container);
+        if (marker === captionStart) {
+          if (starts.has(key)) ambiguous.add(key);
+          const pending = commentCaption(doc, node, undefined, key);
+          captions.set(pending.openLine, pending);
+          starts.set(key, node);
+        } else if (marker === captionEnd) {
+          const start = starts.get(key);
+          if (start && !ambiguous.has(key)) {
+            const closed = commentCaption(doc, start, node, key);
+            captions.set(closed.openLine, closed);
+          }
+          starts.delete(key);
+          ambiguous.delete(key);
+        }
       }
       return false;
     }
   });
 
+  let enclosing: CaptionSource | undefined;
+  for (const caption of captions.values()) {
+    if (enclosing && enclosing.endLine >= caption.openLine) {
+      // A second layout inside a caption is ambiguous. Leave both as native content.
+      if (caption.format === "comment") caption.closed = false;
+      if (enclosing.format === "comment" && caption.format === "comment") enclosing.closed = false;
+      continue;
+    }
+    if (caption.closed) enclosing = caption;
+  }
   for (const caption of captions.values()) {
     let previous = caption.openLine - 1;
     while (previous > 0 && !doc.line(previous).text.trim()) previous--;
@@ -237,10 +301,11 @@ export function captionIndex(doc: Text): CaptionIndex {
   return index;
 }
 
-export function captionInsertion(doc: Text, image: ImageSource): { from: number; insert: string; cursor: number } {
+export function captionInsertion(doc: Text, image: ImageSource, format: CaptionFormat = "fence"): { from: number; insert: string; cursor: number } {
   const from = doc.line(image.line).to;
   const indent = " ".repeat(image.indent);
-  const prefix = "\n" + indent + "```" + captionLanguage + "\n" + indent;
+  const prefix = "\n" + indent + (format === "comment" ? captionStart : "```" + captionLanguage) + "\n" + indent;
+  const ending = format === "comment" ? "\n" + indent + captionEnd : indent + "```";
   const separation = image.line < doc.lines && doc.line(image.line + 1).text.trim() ? "\n" : "";
-  return { from, cursor: from + prefix.length, insert: prefix + "\n" + indent + "```" + separation };
+  return { from, cursor: from + prefix.length, insert: prefix + "\n" + ending + separation };
 }

@@ -124,3 +124,20 @@ void test("does not interfere with multi-line selection, non-indent changes or h
   equal(changeIndent(wide, [2], 2).newDoc.line(4).text, lines[3]);
   equal(changeIndent(state, [2], 2, "", "undo").newDoc.line(4).text, lines[3]);
 });
+
+void test("repairs native outdent of a comment caption and preserves Markdown in one undo step", () => {
+  const markers = ["<!-- image-caption:start -->", "<!-- image-caption:end -->"];
+  const group = (indent: string) => [indent + markers[0], ...rich.map(line => line ? indent + line : ""), "", indent + markers[1]];
+  const lines = ["- Parent", "  - ![[same.png]]", ...group("    "), "", "- Following"];
+  const original = create(lines, 2, -1);
+  const transaction = changeIndent(original, [2, ...group("    ").map((_, i) => i + 3)], 4);
+  equal(transaction.newDoc.toString(), ["- Parent", "- ![[same.png]]", ...group("  "), "", "- Following"].join("\n"));
+  equal(bodyAt(transaction.state, 2), rich.join("\n"));
+  let current = transaction.state;
+  const dispatch = (step: Transaction) => { current = step.state; };
+  ok(undo({ state: current, dispatch }));
+  equal(current.doc.toString(), original.doc.toString());
+  ok(!undo({ state: current, dispatch }));
+  ok(redo({ state: current, dispatch }));
+  equal(current.doc.toString(), transaction.newDoc.toString());
+});

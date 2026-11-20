@@ -100,3 +100,70 @@ void test("keeps the image target for each appearance and the source span of its
   equal(index.captions.get(4)?.image?.target, "folder/beam.png");
   equal(index.captions.get(4)?.endLine, 6);
 });
+
+const start = "<!-- image-caption:start -->";
+const end = "<!-- image-caption:end -->";
+
+void test("creates an adjacent native Markdown caption with the correct caret and separator at depths zero through five", () => {
+  for (let depth = 0; depth <= 5; depth++) {
+    const ancestors = Array.from({ length: Math.max(0, depth - 1) }, (_, index) => "  ".repeat(index) + "- Parent");
+    const marker = depth ? "  ".repeat(depth - 1) + "* " : "";
+    const indent = "  ".repeat(depth);
+    const source = document(...ancestors, marker + "![[beam.png]]", "", "Untouched");
+    const image = captionIndex(source).images.get(ancestors.length + 1);
+    ok(image);
+    const { from, insert, cursor } = captionInsertion(source, image, "comment");
+    const after = source.replace(from, from, Text.of(insert.split("\n")));
+    const caption = captionIndex(after).captionedImages.get(image.from);
+    equal(caption?.format, "comment");
+    equal(caption?.closed, true);
+    equal(caption?.input, cursor);
+    equal(caption?.body, "");
+    equal(after.line(image.line + 1).text, indent + start);
+    equal(after.line(image.line + 2).text, indent);
+    equal(after.line(image.line + 3).text, "");
+    equal(after.line(image.line + 4).text, indent + end);
+    equal(after.sliceString(from + insert.length), source.sliceString(from));
+  }
+});
+
+void test("pairs repeated references independently in a mixed-format note and preserves native block descriptors", () => {
+  const source = document(
+    "- Parent", "  - ![[beam.png]]", "    " + start, "    [[First]]", "", "    - Nested", "", "    $$",
+    "    x^2", "    $$", "", "    " + end, "  - ![[beam.png]]",
+    "    " + fence + "image-caption", "    Second", "    " + fence
+  );
+  const { captionedImages, images } = captionIndex(source);
+  const first = images.get(2);
+  const second = images.get(13);
+  ok(first && second);
+  const caption = captionedImages.get(first.from);
+  equal(caption?.format, "comment");
+  equal(caption?.body, "[[First]]\n\n- Nested\n\n$$\nx^2\n$$");
+  deepEqual(caption?.blocks, ["Paragraph", "BulletList", "Math"]);
+  equal(captionedImages.get(second.from)?.format, "fence");
+});
+
+void test("leaves overlapping and cross-item markers open without assigning another image", () => {
+  const overlap = document("![[beam.png]]", start, "Draft", start, "Caption", "", end, end);
+  const cross = document("- ![[beam.png]]", "  " + start, "  Draft", "- Other", "  " + end);
+  for (const source of [overlap, cross]) {
+    const index = captionIndex(source);
+    equal([...index.captions.values()].some(caption => caption.closed), false);
+    equal(index.captionedImages.size, 1);
+  }
+  const fake = document(fence + "md", "![[beam.png]]", start, "Fake", end, fence);
+  equal(captionIndex(fake).captions.size, 0);
+});
+
+void test("leaves a terminal list native until a blank separates it from the end marker", () => {
+  for (const [gap, closed] of [[[], false], [[""], true]] as const) {
+    const source = document("- ![[beam.png]]", "  " + start, "  - Final item", ...gap, "  " + end);
+    equal(captionIndex(source).captions.get(2)?.closed, closed);
+  }
+});
+
+void test("leaves comments inside a parameterless Adjustable Media layout alone", () => {
+  const source = document("<!-- vml -->", "![[beam.png]]", start, "Other plugin's content.", "", end, "<!-- /vml -->");
+  equal(captionIndex(source).captions.size, 0);
+});

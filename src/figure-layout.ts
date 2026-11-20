@@ -26,7 +26,7 @@ export function clearFigureSize(element: HTMLElement): void {
 
 export function refreshMath(element: HTMLElement): void {
   const math = element.querySelectorAll<HTMLElement>("mjx-container");
-  const paired = element.hasClass(pairedClass);
+  const paired = element.hasClass(pairedClass) || element.hasClass(`${captionClass}--native-math`);
   const style = element.doc.defaultView?.getComputedStyle(element);
   const width = element.clientWidth - (Number.parseFloat(style?.paddingLeft ?? "") || 0) -
     (Number.parseFloat(style?.paddingRight ?? "") || 0);

@@ -38,7 +38,7 @@ function hasOnlyIndentChanges(transaction: Transaction, imageLine: number, direc
 
 function originalCaptionAt(doc: Text, image: ImageSource, caption: CaptionSource): boolean {
   const paired = captionIndex(doc).captionedImages.get(image.from);
-  return paired?.closed === true && paired.openLine === caption.openLine &&
+  return paired?.closed === true && paired.format === caption.format && paired.openLine === caption.openLine &&
     paired.endLine === caption.endLine && paired.body === caption.body;
 }
 
