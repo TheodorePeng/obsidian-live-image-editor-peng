@@ -14,12 +14,12 @@ interface ActionPosition {
 const preferredSize = 24;
 const minimumSize = 16;
 
-export function imageActionPosition(picture: Bounds, clip: Bounds, controls: readonly Bounds[]): ActionPosition | undefined {
+export function imageActionPosition(picture: Bounds, clip: Bounds, controls: readonly Bounds[], side: "left" | "right" = "left"): ActionPosition | undefined {
   const mirror = ({ left, right, top, bottom }: Bounds): Bounds =>
-    ({ left: -right, right: -left, top: -bottom, bottom: -top });
+    ({ left: side === "left" ? -right : left, right: side === "left" ? -left : right, top: -bottom, bottom: -top });
   const position = cornerPosition(mirror(picture), mirror(clip), controls.map(mirror));
   if (position) {
-    return { left: -position.left - position.size, top: -position.top - position.size, size: position.size };
+    return { left: side === "left" ? -position.left - position.size : position.left, top: -position.top - position.size, size: position.size };
   }
 }
 

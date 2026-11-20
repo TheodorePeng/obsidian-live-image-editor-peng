@@ -5,10 +5,11 @@ import { EditorSelection, EditorState, type ChangeSpec, type Transaction } from 
 import { synchronizeCaptionIndent, type IndentDirection } from "../src/caption-indent";
 import { captionIndex } from "../src/caption-source";
 
-const fence = "```";
+const start = "<!-- image-caption:start -->";
+const end = "<!-- image-caption:end -->";
 const rich = ["**Caption** [[Statics]]", "", "- Point", "  1. Detail", "", "$$", "M = FL/4", "$$"];
 const caption = (indent: string, body = rich) =>
-  [indent + fence + "image-caption", ...body.map(line => line ? indent + line : ""), indent + fence];
+  [indent + start, ...body.map(line => line ? indent + line : ""), "", indent + end];
 
 function create(lines: string[], imageLine: number, direction: IndentDirection, multi = false) {
   const start = lines.slice(0, imageLine - 1).reduce((offset, line) => offset + line.length + 1, 0);
@@ -60,11 +61,11 @@ void test("repairs the native outdent in one transaction and preserves rich Mark
   equal(current.doc.toString(), expected);
 });
 
-void test("keeps the complete native indent when the image and its empty fence already stay together", () => {
+void test("keeps the complete native indent when the image and its empty caption already stay together", () => {
   const lines = ["- Parent", "  - Previous", "  - ![[same.png]]", "", ...caption("    ", [""]), "", "---"];
   const state = create(lines, 3, 1);
-  const transaction = changeIndent(state, [3, 4, 5, 6, 7], 0, "\t", "input.indent");
-  const expected = lines.map((line, i) => i >= 2 && i <= 6 ? "\t" + line : line).join("\n");
+  const transaction = changeIndent(state, [3, 4, 5, 6, 7, 8], 0, "\t", "input.indent");
+  const expected = lines.map((line, i) => i >= 2 && i <= 7 ? "\t" + line : line).join("\n");
   equal(transaction.newDoc.toString(), expected);
   equal(bodyAt(transaction.state, 3), "");
 });
@@ -92,20 +93,20 @@ void test("keeps the original pair when native continuation movement would lose 
 });
 
 void test("preserves relative Markdown indentation in mixed tab and space prefixes", () => {
-  const lines = ["- Parent", "\t- ![[same.png]]", "", "\t  " + fence + "image-caption",
-    "\t  - Point", "\t\t1. Detail", "\t  " + fence];
+  const lines = ["- Parent", "\t- ![[same.png]]", "", "\t  " + start,
+    "\t  - Point", "\t\t1. Detail", "", "\t  " + end];
   const state = create(lines, 2, -1);
-  const transaction = changeIndent(state, [2, 4, 5, 6, 7], 8);
-  equal(transaction.newDoc.toString(), ["- Parent", "- ![[same.png]]", "", "  " + fence + "image-caption",
-    "  - Point", "    1. Detail", "  " + fence].join("\n"));
+  const transaction = changeIndent(state, [2, 4, 5, 6, 8], 8);
+  equal(transaction.newDoc.toString(), ["- Parent", "- ![[same.png]]", "", "  " + start,
+    "  - Point", "    1. Detail", "", "  " + end].join("\n"));
   equal(bodyAt(transaction.state, 2), "- Point\n  1. Detail");
 });
 
-void test("leaves native behavior for plain images, ordered lists, unfinished fences and multiple selections", () => {
+void test("leaves native behavior for plain images, ordered lists, unfinished captions and multiple selections", () => {
   const cases = [
     { lines: ["- Parent", "  - ![[same.png]]"], multi: false },
     { lines: ["- Parent", "  1. ![[same.png]]", "", ...caption("     ")], multi: false },
-    { lines: ["- Parent", "  - ![[same.png]]", "", "    " + fence + "image-caption", "    Draft"], multi: false },
+    { lines: ["- Parent", "  - ![[same.png]]", "", "    " + start, "    Draft"], multi: false },
     { lines: ["- Parent", "  - ![[same.png]]", "", ...caption("    ")], multi: true }
   ];
   for (const { lines, multi } of cases) {

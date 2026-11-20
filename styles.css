@@ -1,40 +1,3 @@
-.image-caption-peng {
-  margin-inline-start: var(--image-caption-offset, 0);
-  margin-block-start: 0.25em;
-  margin-block-end: 0.3em;
-  font-size: 0.875em;
-  color: var(--text-muted);
-  text-align: left;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
-.image-caption-peng__markdown > :first-child {
-  margin-block-start: 0;
-}
-
-.image-caption-peng__markdown > :last-child {
-  margin-block-end: 0;
-}
-
-.image-caption-peng--editable {
-  cursor: text;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.image-caption-peng__status,
-.image-caption-peng__placeholder {
-  color: var(--text-faint);
-}
-
-.image-caption-peng__status {
-  margin-block-end: 0.25em;
-}
-
-.image-caption-peng--hidden,
-.image-caption-peng--hidden-frame,
-.image-caption-peng__status[hidden],
 .cm-editor > button.image-caption-peng__add[hidden] {
   display: none;
 }
@@ -102,27 +65,12 @@
   background: var(--image-caption-fill);
 }
 
-.markdown-source-view .cm-content > .cm-line.image-caption-peng--compact-line {
-  block-size: 0;
-  min-block-size: 0;
-  font-size: 0;
-  line-height: 0;
-  margin-block: 0;
-  padding-block: 0;
-  border-block-width: 0;
-  overflow: hidden;
-}
-
 .markdown-preview-view .image-caption-peng__reading-image {
   margin-block-end: 0;
 }
 
-.markdown-preview-view :is(.image-caption-peng__reading-media, .image-caption-peng__reading-image img) {
+.markdown-preview-view .image-caption-peng__reading-image img {
   vertical-align: bottom;
-}
-
-.markdown-preview-view .image-caption-peng__reading-frame {
-  margin-block-start: 0;
 }
 
 .image-caption-peng__scroll-math {
@@ -138,49 +86,9 @@
   vertical-align: middle;
 }
 
-.image-caption-peng--paired .image-caption-peng__markdown > :first-child {
-  margin-block-start: 0;
-}
-
-.image-caption-peng--paired .image-caption-peng__markdown > :last-child {
-  margin-block-end: 0;
-}
-
 .image-caption-peng--paired a {
   overflow-wrap: anywhere;
   white-space: normal;
-}
-
-.markdown-source-view .cm-content > .cm-line.image-caption-peng--compact-line.image-caption-peng--indent-origin {
-  overflow: visible;
-  visibility: hidden;
-}
-
-.markdown-source-view .cm-content > .cm-line.image-caption-peng--compact-line.image-caption-peng--indent-origin .cm-indent.image-caption-peng--indent-mark::before {
-  visibility: visible;
-  pointer-events: none;
-  bottom: auto;
-  height: var(--image-caption-indent-height);
-  translate: var(--image-caption-indent-shift, 0px) 0;
-}
-
-.cm-lang-image-caption.image-caption-peng--indent-frame {
-  position: relative;
-}
-
-.image-caption-peng__indent-segments {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.image-caption-peng__indent-segments > div {
-  position: absolute;
-  left: var(--image-caption-indent-x);
-  top: var(--image-caption-indent-y);
-  bottom: 0;
-  width: var(--image-caption-indent-width);
-  background: var(--image-caption-indent-color);
 }
 
 .markdown-source-view .cm-content > .image-caption-peng--native-marker {
@@ -271,3 +179,62 @@
   overflow-x: auto;
   vertical-align: middle;
 }
+
+img.live-image-editor-peng--cropped {
+  object-view-box: var(--live-image-editor-crop-inset);
+  width: var(--live-image-editor-crop-width);
+  max-width: 100%;
+  height: auto;
+}
+
+.live-image-editor-peng__modal {
+  width: min(820px, 90vw);
+}
+
+.live-image-editor-peng__crop-stage {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  overflow: hidden;
+}
+
+.live-image-editor-peng__crop-stage[hidden] {
+  display: none;
+}
+
+.live-image-editor-peng__crop-stage > img {
+  display: block;
+  max-width: 100%;
+  max-height: 62vh;
+  width: auto;
+  height: auto;
+  user-select: none;
+}
+
+.live-image-editor-peng__selection {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid white;
+  box-shadow: 0 0 0 120vmax rgb(0 0 0 / 65%);
+  touch-action: none;
+  cursor: move;
+}
+
+
+.live-image-editor-peng__selection > span {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  background: white;
+  border: 1px solid rgb(0 0 0 / 50%);
+}
+
+.live-image-editor-peng__selection > :is([data-handle="nw"], [data-handle="n"], [data-handle="ne"]) { top: 0; }
+.live-image-editor-peng__selection > :is([data-handle="sw"], [data-handle="s"], [data-handle="se"]) { bottom: 0; }
+.live-image-editor-peng__selection > :is([data-handle="nw"], [data-handle="w"], [data-handle="sw"]) { left: 0; }
+.live-image-editor-peng__selection > :is([data-handle="ne"], [data-handle="e"], [data-handle="se"]) { right: 0; }
+.live-image-editor-peng__selection > :is([data-handle="n"], [data-handle="s"]) { left: calc(50% - 6px); cursor: ns-resize; }
+.live-image-editor-peng__selection > :is([data-handle="w"], [data-handle="e"]) { top: calc(50% - 6px); cursor: ew-resize; }
+.live-image-editor-peng__selection > :is([data-handle="nw"], [data-handle="se"]) { cursor: nwse-resize; }
+.live-image-editor-peng__selection > :is([data-handle="ne"], [data-handle="sw"]) { cursor: nesw-resize; }

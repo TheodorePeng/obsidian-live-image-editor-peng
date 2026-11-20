@@ -152,7 +152,7 @@ export class NativeCaptionLines {
       (row.hasClass("cm-line") ? rows : mathByLine).set(number, row);
     }
     for (const caption of captions) {
-      if (caption.format !== "comment" || !caption.closed || !caption.image) continue;
+      if (!caption.closed || !caption.image) continue;
       if (caption.endLine < firstVisible || caption.openLine > lastVisible) continue;
       let last = caption.endLine - 1;
       while (last > caption.openLine && !doc.line(last).text.trim()) last--;

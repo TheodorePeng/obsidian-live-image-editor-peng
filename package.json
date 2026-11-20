@@ -1,14 +1,14 @@
 {
-  "name": "image-caption-peng",
-  "version": "0.1.8",
+  "name": "live-image-editor-peng",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Add and edit Markdown captions below images in Live Preview and display them in Reading View.",
+  "description": "Crop local images non-destructively and add Markdown captions in Live Preview and Reading View.",
   "author": "Peng",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TheodorePeng/obsidian-image-caption-peng.git"
+    "url": "git+https://github.com/TheodorePeng/live-image-editor-peng.git"
   },
   "scripts": {
     "build": "npm run typecheck && node esbuild.config.mjs",

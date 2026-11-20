@@ -2,44 +2,33 @@ import { isolateHistory } from "@codemirror/commands";
 import { Transaction } from "@codemirror/state";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import {
-  Component,
   editorInfoField,
   editorLivePreviewField,
-  MarkdownRenderChild,
-  MarkdownRenderer,
+  Notice,
   Plugin,
   setIcon,
   type EventRef,
-  type Workspace,
-  type MarkdownPostProcessorContext
+  type Workspace
 } from "obsidian";
-import { captionIndex, captionInsertion, captionLanguage, type CaptionSource, type ImageSource } from "./caption-source";
-
-import { compactLinesField, setCompactLines, type CompactLines } from "./compact-lines";
-
-import { captionClass, clearFigureSize, refreshMath, setFigureSize } from "./figure-layout";
+import { captionIndex, captionInsertion, type ImageSource } from "./caption-source";
+import { captionClass } from "./figure-layout";
 import { NativeCaptionReading, NativeCaptionReadingSection } from "./native-caption-reading";
 import { NativeCaptionLines, nativeCaptionRows } from "./native-caption-lines";
-import { ReadingFigure } from "./reading-layout";
 import { imageActionPosition } from "./image-action-placement";
 import { captionIndentExtension } from "./indent-extension";
-import { CaptionIndentation, type IndentationPair } from "./indentation-guides";
+import { CropDisplay, CropReadingSection, liveImagePairs, supportsCrop } from "./crop-render";
+import { cropMarkers } from "./crop-markers";
+import { CropModal } from "./crop-modal";
+import { cropChange, type Crop } from "./crop-state";
+import { isLocalImageTarget, resolveTarget } from "./image-target";
+import type { ImageReference } from "./image-source";
 
 const addLabel = "添加图注";
+const cropLabel = "裁剪";
 const leaveDelay = 180;
-const emptyLabel = "添加图注内容";
-const orphanLabel = "未关联图片";
 
 function livePreview(view: EditorView): boolean {
   return view.state.field(editorLivePreviewField, false) === true;
-}
-
-function captionAtElement(view: EditorView, element: HTMLElement): CaptionSource | undefined {
-  if (!element.isConnected || element.parentElement?.parentElement !== view.contentDOM) return;
-  const offset = view.posAtDOM(element);
-  const line = view.state.doc.lineAt(offset);
-  const caption = captionIndex(view.state.doc).captions.get(line.number);
-  return caption?.closed && caption.format === "fence" ? caption : undefined;
 }
 
 function imageAtElement(view: EditorView, element: HTMLImageElement): ImageSource | undefined {
@@ -60,150 +49,15 @@ function containsPoint(rect: DOMRectReadOnly, x: number, y: number): boolean {
     x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
-class CaptionBlock extends MarkdownRenderChild {
-  private status?: HTMLElement;
-  private body?: HTMLElement;
-  private renderedSource?: string;
-  private showingPlaceholder = false;
-  private renderedChild?: Component;
-  private frame?: number;
-  private readingFigure?: ReadingFigure;
-  private press?: { x: number; y: number };
-
-  constructor(
-    element: HTMLElement,
-    private readonly plugin: ImageCaptionPlugin,
-    private readonly source: string,
-    private readonly context: MarkdownPostProcessorContext
-  ) {
-    super(element);
-  }
-
-  onload(): void {
-    const element = this.containerEl;
-    element.addClass(captionClass);
-    this.status = element.createDiv({ cls: `${captionClass}__status`, attr: { hidden: "" } });
-    this.body = element.createDiv({ cls: `${captionClass}__body` });
-    this.registerDomEvent(element, "pointerdown", event => {
-      this.press = { x: event.clientX, y: event.clientY };
-    });
-    this.registerDomEvent(element, "click", event => this.edit(event));
-    this.scheduleMount();
-  }
-
-  private scheduleMount(): void {
-    const element = this.containerEl;
-    this.frame = element.ownerDocument.defaultView?.requestAnimationFrame(() => {
-      this.frame = undefined;
-      if (!element.isConnected) {
-        this.register(element.onNodeInserted(() => this.scheduleMount(), true));
-        return;
-      }
-      this.refresh();
-      if (this.source.trim() && !this.editor() && element.closest(".markdown-preview-section")) {
-        this.readingFigure = new ReadingFigure(element);
-        this.readingFigure.mount(this.plugin.app, this.source, this.context);
-      }
-    });
-  }
-
-  onunload(): void {
-    this.readingFigure?.destroy();
-    if (this.frame !== undefined) this.containerEl.ownerDocument.defaultView?.cancelAnimationFrame(this.frame);
-  }
-
-  private editor(): EditorView | undefined {
-    const root = this.containerEl.closest<HTMLElement>(".cm-editor");
-    const view = root && EditorView.findFromDOM(root);
-    if (!view || !livePreview(view) || !view.contentDOM.contains(this.containerEl)) return;
-    return view.state.field(editorInfoField, false)?.file?.path === this.context.sourcePath ? view : undefined;
-  }
-
-  refresh(): void {
-    if (!this.status || !this.body || !this.containerEl.isConnected) return;
-    if (this.containerEl.parentElement?.closest(`.${captionClass}`)) {
-      if (this.renderedSource === undefined) {
-        this.renderedSource = this.source;
-        this.body.createEl("pre").createEl("code", { text: this.source });
-      }
-      return;
-    }
-    const editor = this.editor();
-    const caption = editor && captionAtElement(editor, this.containerEl);
-    const source = caption?.body ?? this.source;
-    const empty = !source.trim();
-    const status = caption && !caption.image ? orphanLabel : "";
-
-    this.containerEl.toggleClass(`${captionClass}--editable`, !!caption);
-    this.containerEl.toggleClass(`${captionClass}--hidden`, empty && !editor);
-    const frame = this.containerEl.parentElement;
-    if (frame?.matches(".el-pre") && frame.childElementCount === 1) {
-      frame.toggleClass(`${captionClass}--hidden-frame`, empty && !editor);
-    }
-    this.status.hidden = !status;
-    if (this.status.textContent !== status) this.status.setText(status);
-
-    const placeholder = empty && !!editor;
-    if (source === this.renderedSource && placeholder === this.showingPlaceholder) return;
-    this.renderedSource = source;
-    this.showingPlaceholder = placeholder;
-    if (this.renderedChild) {
-      this.removeChild(this.renderedChild);
-      this.renderedChild = undefined;
-    }
-    this.body.empty();
-    this.body.toggleClass(`${captionClass}__placeholder`, empty);
-    if (empty) {
-      if (editor) this.body.setText(emptyLabel);
-      return;
-    }
-    const target = this.body.createDiv({ cls: `${captionClass}__markdown` });
-    const component = this.addChild(new Component());
-    this.renderedChild = component;
-    void MarkdownRenderer.render(this.plugin.app, source, target, this.context.sourcePath, component).then(() => {
-      if (!target.isConnected) return;
-      refreshMath(this.containerEl);
-      this.readingFigure?.schedule();
-    }).catch(() => {
-      target.setText(source);
-    });
-  }
-
-  private edit(event: MouseEvent): void {
-    const press = this.press;
-    this.press = undefined;
-    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-    const target = event.targetNode;
-    if (target?.instanceOf(Element)) {
-      const control = target.closest("a, button, input, textarea, select, summary, .image-caption-peng__scroll-math, [role=button], [contenteditable=true]");
-      if (control && this.containerEl.contains(control)) return;
-    }
-    if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 4) return;
-    const selection = this.containerEl.ownerDocument.getSelection();
-    if (selection && !selection.isCollapsed && selection.anchorNode && this.containerEl.contains(selection.anchorNode)) return;
-
-    const editor = this.editor();
-    if (!editor) return;
-    const caption = captionAtElement(editor, this.containerEl);
-    if (!caption) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    editor.dispatch({ selection: { anchor: caption.input }, scrollIntoView: true });
-    editor.focus();
-  }
-}
-
-class CaptionEditor {
+class ImageActions {
   private readonly button: HTMLButtonElement;
+  private readonly cropButton: HTMLButtonElement;
+  private readonly cropDisplay = new CropDisplay();
+  private imagePairs = new Map<HTMLImageElement, ImageReference>();
   private frame?: number;
   private layoutPending = false;
-  private compactDocument?: EditorView["state"]["doc"];
-  private readonly compactPairs = new Map<number, CompactLines>();
-  private compactSignature = "";
   private readonly resizeObserver?: ResizeObserver;
   private readonly observedFigureElements = new Set<HTMLElement>();
-  private readonly indentation = new CaptionIndentation();
   private readonly nativeCaptionLines = new NativeCaptionLines();
   private readonly cssChanged: EventRef;
   private hovered?: { image: HTMLImageElement; from: number; doc: EditorView["state"]["doc"] };
@@ -216,19 +70,12 @@ class CaptionEditor {
 
   constructor(
     private readonly view: EditorView,
-    private readonly blocks: WeakMap<HTMLElement, CaptionBlock>,
-    private readonly workspace: Workspace
+    private readonly workspace: Workspace,
+    private readonly plugin: ImageEditorPlugin
   ) {
     this.cssChanged = workspace.on("css-change", this.imageChanged);
-    this.button = view.dom.createEl("button", {
-      cls: `${captionClass}__add`,
-      attr: { type: "button", "aria-label": addLabel, title: addLabel }
-    });
-    this.button.hidden = true;
-    setIcon(this.button, "plus");
-    this.button.addEventListener("pointerdown", this.keepEditorFocus);
-    this.button.addEventListener("click", this.activate);
-    this.button.addEventListener("blur", this.pointerBlur);
+    this.button = this.createAction(addLabel, "plus", this.activate);
+    this.cropButton = this.createAction(cropLabel, "crop", this.activateCrop);
     view.dom.addEventListener("pointerdown", this.skipRepeatedAction, true);
     view.dom.addEventListener("mousedown", this.skipRepeatedAction, true);
     view.dom.addEventListener("click", this.skipRepeatedAction, true);
@@ -245,6 +92,19 @@ class CaptionEditor {
       this.resizeObserver.observe(view.scrollDOM);
     }
     this.queueRefresh();
+  }
+
+  private createAction(label: string, icon: string, activate: (event: MouseEvent) => void): HTMLButtonElement {
+    const button = this.view.dom.createEl("button", {
+      cls: `${captionClass}__add`,
+      attr: { type: "button", "aria-label": label, title: label }
+    });
+    button.hidden = true;
+    setIcon(button, icon);
+    button.addEventListener("pointerdown", this.keepEditorFocus);
+    button.addEventListener("click", activate);
+    button.addEventListener("blur", this.pointerBlur);
+    return button;
   }
 
   update(update: ViewUpdate): void {
@@ -274,7 +134,6 @@ class CaptionEditor {
     this.view.dom.removeEventListener("error", this.imageChanged, true);
     this.resizeObserver?.disconnect();
     this.workspace.offref(this.cssChanged);
-    this.indentation.clear();
     this.nativeCaptionLines.clear();
     this.observedFigureElements.clear();
     this.button.removeEventListener("pointerdown", this.keepEditorFocus);
@@ -283,6 +142,8 @@ class CaptionEditor {
     this.hideButton();
     if (this.frame !== undefined) this.view.dom.ownerDocument.defaultView?.cancelAnimationFrame(this.frame);
     this.button.remove();
+    this.cropButton.remove();
+    this.cropDisplay.clear();
   }
 
   private readonly imageChanged = (): void => this.queueRefresh();
@@ -303,22 +164,18 @@ class CaptionEditor {
 
   private refreshCaptions(): void {
     const { doc } = this.view.state;
-    if (doc !== this.compactDocument || !livePreview(this.view)) {
-      this.compactDocument = doc;
-      this.compactPairs.clear();
-    }
     if (!livePreview(this.view)) {
-      this.indentation.clear();
+      this.cropDisplay.clear();
+      this.imagePairs.clear();
       this.nativeCaptionLines.clear(this.view);
       this.observeFigureElements(new Set());
-      this.applyCompactLines();
       return;
     }
 
-    const visible = this.view.viewport;
-    for (const [opening] of this.compactPairs) {
-      if (opening >= visible.from && opening <= visible.to) this.compactPairs.delete(opening);
-    }
+    const path = this.view.state.field(editorInfoField, false)?.file?.path;
+    this.imagePairs = path ? liveImagePairs(this.plugin.app, path, this.view) : new Map<HTMLImageElement, ImageReference>();
+    this.cropDisplay.update(this.imagePairs);
+
     const images = new Map<number, HTMLImageElement>();
     for (const image of this.view.contentDOM.querySelectorAll<HTMLImageElement>(".cm-line img[src]")) {
       const source = imageAtElement(this.view, image);
@@ -326,47 +183,8 @@ class CaptionEditor {
     }
 
     const visibleFigureElements = new Set<HTMLElement>();
-    const indentPairs: { frame: HTMLElement; imageRow: HTMLElement; group: CompactLines; opening: number }[] = [];
-    for (const element of this.view.contentDOM.querySelectorAll<HTMLElement>(`.${captionClass}`)) {
-      const block = this.blocks.get(element);
-      if (!block) continue;
-      block.refresh();
-      const frame = element.parentElement;
-      const caption = captionAtElement(this.view, element);
-      const image = caption?.image;
-      const renderedImage = image && images.get(image.from);
-      const rectangle = renderedImage?.getBoundingClientRect();
-      if (!frame || !image || !caption || !renderedImage || !rectangle?.width || !rectangle.height) {
-        clearFigureSize(element);
-        continue;
-      }
-      visibleFigureElements.add(renderedImage);
-      visibleFigureElements.add(frame);
-      setFigureSize(element, rectangle, rectangle.left - frame.getBoundingClientRect().left);
-      refreshMath(element);
-      const opening = doc.line(caption.openLine);
-      const first = doc.line(image.line + 1);
-      const lines = [];
-      for (let number = first.number; number <= opening.number; number++) {
-        lines.push(doc.line(number).from);
-      }
-      const group = { from: first.from, to: doc.line(caption.endLine).to, lines };
-      this.compactPairs.set(opening.from, group);
-      const imageRow = renderedImage.closest<HTMLElement>(".cm-line.HyperMD-list-line");
-      if (imageRow) indentPairs.push({ frame, imageRow, group, opening: opening.number });
-    }
     this.nativeCaptionLines.update(this.view, captionIndex(doc).captions.values(), images, visibleFigureElements);
     this.observeFigureElements(visibleFigureElements);
-    this.applyCompactLines();
-    const indentation: IndentationPair[] = [];
-    for (const { frame, imageRow, group, opening } of indentPairs) {
-      if (!frame.isConnected || this.view.state.selection.ranges.some(range => range.from <= group.to && range.to >= group.from)) continue;
-      const previous = frame.previousElementSibling;
-      const origin = previous?.instanceOf(HTMLElement) && previous.hasClass("cm-line") &&
-        doc.lineAt(this.view.posAtDOM(previous)).number === opening ? previous : undefined;
-      indentation.push({ frame, imageRow, opening: origin });
-    }
-    this.indentation.update(indentation);
   }
 
   private observeFigureElements(visible: Set<HTMLElement>): void {
@@ -382,15 +200,6 @@ class CaptionEditor {
         this.observedFigureElements.add(image);
       }
     }
-  }
-
-  private applyCompactLines(): void {
-    const groups = [...this.compactPairs.values()].sort((left, right) => left.from - right.from);
-    const signature = groups.map(group => `${group.from}:${group.to}:${group.lines.join(",")}`).join(" ");
-    if (signature === this.compactSignature &&
-        this.view.state.field(compactLinesField).groups.length === groups.length) return;
-    this.compactSignature = signature;
-    this.view.dispatch({ effects: setCompactLines.of(groups), annotations: Transaction.addToHistory.of(false) });
   }
 
   private readonly keepEditorFocus = (event: PointerEvent): void => {
@@ -423,10 +232,15 @@ class CaptionEditor {
       return;
     }
     this.pointer = undefined;
-    if (this.button.doc.activeElement !== this.button) this.hideButton();
+    if (!this.actionFocused()) this.hideButton();
   };
 
   private readonly pointerBlur = (): void => this.refreshButton();
+
+  private actionFocused(): boolean {
+    const active = this.button.doc.activeElement;
+    return active === this.button || active === this.cropButton;
+  }
 
   private refreshButton(): void {
     if (!livePreview(this.view)) {
@@ -435,35 +249,49 @@ class CaptionEditor {
     }
     const { pointer } = this;
     const target = pointer ? this.view.dom.doc.elementFromPoint(pointer.x, pointer.y) : null;
-    const overButton = this.button.contains(target) || this.button.doc.activeElement === this.button;
+    const overButton = this.button.contains(target) || this.cropButton.contains(target) || this.actionFocused();
     const overAnchor = pointer && this.hovered &&
       containsPoint(this.hovered.image.getBoundingClientRect(), pointer.x, pointer.y);
     if (this.hovered && (overButton || overAnchor)) {
-      const { image, from, doc } = this.hovered;
-      if (doc !== this.view.state.doc || !this.imageNeedsCaption(image, from) || !this.positionButton(image, overButton)) {
+      if (this.hovered.doc !== this.view.state.doc || !this.positionActions(this.hovered.image, overButton)) {
         this.hideButton();
       } else {
         this.clearLeaveTimer();
       }
       return;
     }
-    const line = target?.closest(".cm-line");
-    if (pointer && line?.parentElement === this.view.contentDOM) {
-      const image = [...line.querySelectorAll<HTMLImageElement>("img[src]")]
+    const host = target?.closest(".cm-line, .cm-embed-block");
+    if (pointer && host && this.view.contentDOM.contains(host)) {
+      const image = [...host.querySelectorAll<HTMLImageElement>("img[src]")]
         .find(candidate => containsPoint(candidate.getBoundingClientRect(), pointer.x, pointer.y));
-      const source = image && this.imageNeedsCaption(image);
-      if (image && source && this.positionButton(image)) {
-        this.clearLeaveTimer();
-        const { doc } = this.view.state;
-        this.hovered = { image, from: source.from, doc };
-        this.view.dom.doc.addEventListener("pointermove", this.outsidePointerMove);
-        this.button.hidden = false;
-        return;
+      if (image && this.positionActions(image)) {
+        const source = this.cropReference(image) ?? this.imageNeedsCaption(image);
+        if (source) {
+          this.clearLeaveTimer();
+          const { doc } = this.view.state;
+          this.hovered = { image, from: source.from, doc };
+          this.view.dom.doc.addEventListener("pointermove", this.outsidePointerMove);
+          return;
+        }
       }
     }
     if (this.hovered && this.leaveTimer === undefined) {
       this.leaveTimer = this.view.dom.doc.defaultView?.setTimeout(() => this.hideButton(), leaveDelay);
     }
+  }
+
+  private cropReference(image: HTMLImageElement): ImageReference | undefined {
+    const source = this.imagePairs.get(image);
+    if (source && image.isConnected && image.naturalWidth && image.naturalHeight &&
+        isLocalImageTarget(source.target) &&
+        (!source.marker || source.marker.crop) && supportsCrop(image)) return source;
+  }
+
+  private positionActions(image: HTMLImageElement, keepCurrent = false): boolean {
+    this.button.hidden = !this.imageNeedsCaption(image) || !this.positionButton(image, this.button, keepCurrent);
+    this.cropButton.hidden = !this.cropReference(image) ||
+      !this.positionButton(image, this.cropButton, keepCurrent, this.button.hidden ? undefined : this.button.getBoundingClientRect());
+    return !this.button.hidden || !this.cropButton.hidden;
   }
 
   private imageNeedsCaption(image: HTMLImageElement, from?: number): ImageSource | undefined {
@@ -472,7 +300,8 @@ class CaptionEditor {
     if (!captionIndex(this.view.state.doc).captionedImages.has(source.from)) return source;
   }
 
-  private positionButton(image: HTMLImageElement, keepCurrent = false): boolean {
+  private positionButton(image: HTMLImageElement, button: HTMLButtonElement, keepCurrent: boolean,
+    other?: DOMRect): boolean {
     const picture = image.getBoundingClientRect();
     const pane = this.view.scrollDOM.getBoundingClientRect();
     const screen = this.view.dom.doc.documentElement;
@@ -481,7 +310,7 @@ class CaptionEditor {
       top: Math.max(pane.top, 0), bottom: Math.min(pane.bottom, screen.clientHeight)
     };
     const selector = "button, a, [role=button], .embed-action, .image-resize-corner";
-    const row = image.closest<HTMLElement>(".cm-line");
+    const row = image.closest<HTMLElement>(".cm-line, .cm-embed-block");
     if (!row) return false;
     const portals = this.controlPortals();
     const roots = [row, ...portals];
@@ -491,9 +320,11 @@ class CaptionEditor {
       .map(control => control.getBoundingClientRect())
       .filter(box => box.right > picture.left && box.left < picture.right &&
         box.bottom > picture.top && box.top < picture.bottom && box.width > 0 && box.height > 0);
+    if (other) controls.push(other);
+    const side = button === this.cropButton ? "right" : "left";
     const externalControls = new Set<Element>();
-    if (keepCurrent && !this.button.hidden) {
-      const current = this.button.getBoundingClientRect();
+    if (keepCurrent && !button.hidden) {
+      const current = button.getBoundingClientRect();
       if (current.left >= Math.max(picture.left, clip.left) && current.top >= Math.max(picture.top, clip.top) &&
           current.right <= Math.min(picture.right, clip.right) && current.bottom <= Math.min(picture.bottom, clip.bottom) &&
           controls.every(box => current.right <= box.left || current.left >= box.right ||
@@ -503,14 +334,14 @@ class CaptionEditor {
         return true;
       }
     }
-    let position = imageActionPosition(picture, clip, controls);
+    let position = imageActionPosition(picture, clip, controls, side);
     // Other plugins can draw clickable image controls outside the editor DOM.
     while (position) {
       const overlap = this.externalControlAt(position, selector, externalControls);
       if (!overlap) break;
       externalControls.add(overlap);
       controls.push(overlap.getBoundingClientRect());
-      position = imageActionPosition(picture, clip, controls);
+      position = imageActionPosition(picture, clip, controls, side);
     }
     const view = this.view.dom;
     const editor = view.getBoundingClientRect();
@@ -526,7 +357,7 @@ class CaptionEditor {
       "--image-caption-action-height": `${position.size * scaleY}px`
     };
     for (const [property, value] of Object.entries(properties)) {
-      if (this.button.style.getPropertyValue(property) !== value) this.button.setCssProps({ [property]: value });
+      if (button.style.getPropertyValue(property) !== value) button.setCssProps({ [property]: value });
     }
     this.observeControls(roots);
     return true;
@@ -597,6 +428,7 @@ class CaptionEditor {
     this.controlObserver?.disconnect();
     this.controlRoots = [];
     this.button.hidden = true;
+    this.cropButton.hidden = true;
   }
 
   private readonly activate = (event: MouseEvent): void => {
@@ -612,7 +444,7 @@ class CaptionEditor {
     if (!source) return;
 
     this.lastAction = { rect, until: Date.now() + 500 };
-    const { from, insert, cursor } = captionInsertion(doc, source, "comment");
+    const { from, insert, cursor } = captionInsertion(doc, source);
     this.view.dispatch({
       changes: { from, insert },
       selection: { anchor: cursor },
@@ -622,21 +454,70 @@ class CaptionEditor {
     this.view.focus();
   };
 
+  private readonly activateCrop = (event: MouseEvent): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const anchor = this.hovered;
+    this.pointer = undefined;
+    this.hideButton();
+    const { view } = this;
+    const { doc } = view.state;
+    if (!anchor || anchor.doc !== doc || !livePreview(view)) return;
+    const source = this.cropReference(anchor.image);
+    const path = view.state.field(editorInfoField, false)?.file?.path;
+    if (!source || source.from !== anchor.from || !path) return;
+    const url = resolveTarget(this.plugin.app, source.target, path);
+    if (!url) return;
+
+    this.plugin.openCrop(url, source.marker?.crop, crop => {
+      if (!view.dom.isConnected || !livePreview(view) || view.state.doc !== doc ||
+          view.state.field(editorInfoField, false)?.file?.path !== path) {
+        new Notice("笔记已变动，请重新打开裁剪。");
+        return false;
+      }
+      const changes = cropChange(doc, source.to, crop);
+      if (changes) {
+        view.dispatch({
+          changes,
+          annotations: [Transaction.userEvent.of("input"), isolateHistory.of("full")]
+        });
+      }
+      view.focus();
+      return true;
+    });
+  };
+
 }
 
-export default class ImageCaptionPlugin extends Plugin {
-  onload(): void {
-    const blocks = new WeakMap<HTMLElement, CaptionBlock>();
-    this.registerMarkdownCodeBlockProcessor(captionLanguage, (source, element, context) => {
-      const block = new CaptionBlock(element, this, source, context);
-      blocks.set(element, block);
-      context.addChild(block);
+export default class ImageEditorPlugin extends Plugin {
+  private cropModal?: CropModal;
+  private readonly cropSections = new Set<CropReadingSection>();
+
+  openCrop(url: string, crop: Crop | undefined, save: (crop?: Crop) => boolean): void {
+    this.cropModal?.close();
+    const modal = new CropModal(this.app, url, crop, save, () => {
+      if (this.cropModal === modal) this.cropModal = undefined;
     });
+    this.cropModal = modal;
+    modal.open();
+  }
+
+  onunload(): void {
+    this.cropModal?.close();
+    for (const section of this.cropSections) section.stop();
+    this.cropSections.clear();
+  }
+
+  onload(): void {
     const nativeReading = new NativeCaptionReading(this.app);
     this.register(() => nativeReading.destroy());
     this.registerMarkdownPostProcessor((section, context) => {
       context.addChild(new NativeCaptionReadingSection(section, nativeReading, context));
+      const crop = new CropReadingSection(section, this.app, context);
+      this.cropSections.add(crop);
+      crop.register(() => this.cropSections.delete(crop));
+      context.addChild(crop);
     });
-    this.registerEditorExtension([captionIndentExtension(), compactLinesField, nativeCaptionRows, ViewPlugin.define(view => new CaptionEditor(view, blocks, this.app.workspace))]);
+    this.registerEditorExtension([captionIndentExtension(), nativeCaptionRows, cropMarkers, ViewPlugin.define(view => new ImageActions(view, this.app.workspace, this))]);
   }
 }

@@ -2,7 +2,7 @@ import { Text } from "@codemirror/state";
 import { MarkdownRenderChild, type App, type MarkdownPostProcessorContext, type MarkdownSectionInformation } from "obsidian";
 import { captionIndex, type CaptionSource, type ImageSource } from "./caption-source";
 import { captionClass, clearFigureSize, figureContentLeft, refreshMath, setFigureSize } from "./figure-layout";
-import { sameImage } from "./reading-layout";
+import { sameImage } from "./image-target";
 
 const nativeBlock = `${captionClass}--native-reading`;
 const tightBlock = `${captionClass}--native-tight`;
@@ -139,7 +139,7 @@ class NativeReadingView {
     const figures = [];
     for (const caption of index.captionedImages.values()) {
       const image = caption.image;
-      if (caption.format !== "comment" || !caption.closed || !caption.body || !image) continue;
+      if (!caption.closed || !caption.body || !image) continue;
       const section = [...sectionInfos].find(([, info]) => info.text === first.text &&
         image.line > info.lineStart && image.line <= info.lineEnd + 1);
       if (!section) continue;

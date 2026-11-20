@@ -4,28 +4,9 @@ import { Text } from "@codemirror/state";
 import { captionIndex, captionInsertion } from "../src/caption-source";
 
 const fence = "```";
+const start = "<!-- image-caption:start -->";
+const end = "<!-- image-caption:end -->";
 const document = (...lines: string[]) => Text.of(lines);
-
-void test("inserts and re-associates at depths 0 through 4 without rewriting surrounding lines", () => {
-  for (let depth = 0; depth <= 4; depth++) {
-    const prefix = Array.from({ length: Math.max(0, depth - 1) }, (_, index) => "  ".repeat(index) + "- Parent");
-    const marker = depth ? "  ".repeat(depth - 1) + "- " : "";
-    const source = document(...prefix, marker + "![[beam.png|200]]  ", "", "Untouched");
-    const image = captionIndex(source).images.get(depth || 1);
-    ok(image);
-    const { from, insert, cursor } = captionInsertion(source, image);
-    const updated = source.replace(from, from, Text.of(insert.split("\n")));
-    equal(updated.sliceString(0, from), source.sliceString(0, from));
-    equal(updated.sliceString(from + insert.length), source.sliceString(from));
-    const indent = "  ".repeat(depth);
-    equal(updated.line(image.line + 1).text, indent + fence + "image-caption");
-    equal(updated.lineAt(cursor).number, image.line + 2);
-    equal(updated.lineAt(cursor).text, indent);
-    const index = captionIndex(updated);
-    ok(index.captionedImages.has(image.from));
-    equal([...index.captions.values()][0]?.input, cursor);
-  }
-});
 
 void test("uses marker width for ordered lists and matches nested continuation images", () => {
   const source = document("12. Example", "", "    ![beam](<folder/a b.png>)", "    Text continues");
@@ -34,43 +15,23 @@ void test("uses marker width for ordered lists and matches nested continuation i
   equal(image.indent, 4);
   const { from, insert } = captionInsertion(source, image);
   const result = source.replace(from, from, Text.of(insert.split("\n")));
-  equal(result.line(4).text, "    " + fence + "image-caption");
-  equal(result.line(8).text, "    Text continues");
+  equal(result.line(4).text, "    " + start);
+  equal(result.line(9).text, "    Text continues");
   ok(captionIndex(result).captionedImages.has(image.from));
 });
 
 void test("binds only the closest standalone image in the same container", () => {
   const doc = document(
-    "![[same.png]]", "![[same.png]]", "", fence + "image-caption", "Second", fence,
-    "", "Separate ![[inline.png]]", "", fence + "image-caption", "Orphan", fence,
-    "", "- ![[sibling.png]]", "- Another item", "", "  " + fence + "image-caption", "  Orphan", "  " + fence
+    "![[same.png]]", "![[same.png]]", "", start, "Second", "", end,
+    "", "Separate ![[inline.png]]", "", start, "Orphan", "", end,
+    "", "- ![[sibling.png]]", "- Another item", "", "  " + start, "  Orphan", "  " + end
   );
   const index = captionIndex(doc);
-  deepEqual([...index.images.keys()], [1, 2, 14]);
+  deepEqual([...index.images.keys()], [1, 2, 16]);
   equal(index.captions.get(4)?.image?.line, 2);
-  equal(index.captions.get(10)?.image, undefined);
-  equal(index.captions.get(17)?.image, undefined);
+  equal(index.captions.get(11)?.image, undefined);
+  equal(index.captions.get(19)?.image, undefined);
   equal(index.captionedImages.size, 1);
-});
-
-void test("preserves rich Markdown body indentation and derives text entry offset", () => {
-  const doc = document("- One", "  - Two", "    - Three", "", "      ![[beam.png]]", "",
-    "      " + fence + "image-caption", "      **Caption**", "      ", "      - Item",
-    "        1. Nested", "", "      $$", "      M = FL/4", "      $$", "      " + fence);
-  const caption = captionIndex(doc).captions.get(7);
-  equal(caption?.body, "**Caption**\n\n- Item\n  1. Nested\n\n$$\nM = FL/4\n$$");
-  equal(caption?.input, doc.line(8).from + 6);
-  equal(caption?.image?.line, 5);
-});
-
-void test("recognizes empty and unfinished fences without treating them as a new insertion opportunity", () => {
-  const empty = document("![alt](https://example.com/picture)", "", fence + "image-caption", fence);
-  const open = document("![[a.png]]", "", fence + "image-caption", "Draft");
-  equal(captionIndex(empty).captions.get(3)?.body, "");
-  equal(captionIndex(empty).captions.get(3)?.closed, true);
-  equal(captionIndex(open).captions.get(3)?.closed, false);
-  equal(captionIndex(empty).captionedImages.size, 1);
-  equal(captionIndex(open).captionedImages.size, 1);
 });
 
 void test("excludes frontmatter, comments, inline code, ordinary fences, and multiple images on one line", () => {
@@ -86,7 +47,7 @@ void test("excludes frontmatter, comments, inline code, ordinary fences, and mul
 
 void test("avoids inserting inside an Adjustable Media layout", () => {
   const doc = document('<!-- vml {"v":2} -->', "![[inside.png]]", "<!-- /vml -->", "",
-    "![[outside.png]]", "", fence + "image-caption", "Visible", fence);
+    "![[outside.png]]", "", start, "Visible", "", end);
   const index = captionIndex(doc);
   deepEqual([...index.images.keys()], [5]);
   equal(index.captions.get(7)?.image?.line, 5);
@@ -94,15 +55,12 @@ void test("avoids inserting inside an Adjustable Media layout", () => {
 
 void test("keeps the image target for each appearance and the source span of its caption", () => {
   const doc = document("![First](<media/folder A.png>)", "![[folder/beam.png|120]]", "",
-    fence + "image-caption", "Second image", fence);
+    start, "Second image", "", end);
   const index = captionIndex(doc);
   equal(index.images.get(1)?.target, "media/folder A.png");
   equal(index.captions.get(4)?.image?.target, "folder/beam.png");
-  equal(index.captions.get(4)?.endLine, 6);
+  equal(index.captions.get(4)?.endLine, 7);
 });
-
-const start = "<!-- image-caption:start -->";
-const end = "<!-- image-caption:end -->";
 
 void test("creates an adjacent native Markdown caption with the correct caret and separator at depths zero through five", () => {
   for (let depth = 0; depth <= 5; depth++) {
@@ -112,12 +70,12 @@ void test("creates an adjacent native Markdown caption with the correct caret an
     const source = document(...ancestors, marker + "![[beam.png]]", "", "Untouched");
     const image = captionIndex(source).images.get(ancestors.length + 1);
     ok(image);
-    const { from, insert, cursor } = captionInsertion(source, image, "comment");
+    const { from, insert, cursor } = captionInsertion(source, image);
     const after = source.replace(from, from, Text.of(insert.split("\n")));
     const caption = captionIndex(after).captionedImages.get(image.from);
-    equal(caption?.format, "comment");
     equal(caption?.closed, true);
-    equal(caption?.input, cursor);
+    equal(after.lineAt(cursor).number, image.line + 2);
+    equal(after.lineAt(cursor).to, cursor);
     equal(caption?.body, "");
     equal(after.line(image.line + 1).text, indent + start);
     equal(after.line(image.line + 2).text, indent);
@@ -127,21 +85,20 @@ void test("creates an adjacent native Markdown caption with the correct caret an
   }
 });
 
-void test("pairs repeated references independently in a mixed-format note and preserves native block descriptors", () => {
+void test("pairs repeated references independently in a note and preserves native block descriptors", () => {
   const source = document(
     "- Parent", "  - ![[beam.png]]", "    " + start, "    [[First]]", "", "    - Nested", "", "    $$",
     "    x^2", "    $$", "", "    " + end, "  - ![[beam.png]]",
-    "    " + fence + "image-caption", "    Second", "    " + fence
+    "    " + start, "    Second", "", "    " + end
   );
   const { captionedImages, images } = captionIndex(source);
   const first = images.get(2);
   const second = images.get(13);
   ok(first && second);
   const caption = captionedImages.get(first.from);
-  equal(caption?.format, "comment");
   equal(caption?.body, "[[First]]\n\n- Nested\n\n$$\nx^2\n$$");
   deepEqual(caption?.blocks, ["Paragraph", "BulletList", "Math"]);
-  equal(captionedImages.get(second.from)?.format, "fence");
+  equal(captionedImages.get(second.from)?.body, "Second");
 });
 
 void test("leaves overlapping and cross-item markers open without assigning another image", () => {

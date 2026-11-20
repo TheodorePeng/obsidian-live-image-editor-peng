@@ -1,8 +1,11 @@
-# Image Caption Peng
+# Live Image Editor Peng
 
-Write Markdown captions under images in Obsidian. Author them in Live Preview, read them in Reading View. The first release targets Obsidian 1.15.1 on macOS.
+Crop local images and write Markdown captions in Obsidian. Edit in Live Preview and see the results in both views. Supports Obsidian 1.15.1 or later on desktop.
 
 ## Features
+
+- Hover a local image in Live Preview and click **Crop**. Drag the selection or its handles, then confirm. Open Crop again to adjust the selection or restore the original image.
+- Each image reference has its own crop. The original attachment stays intact, and the crop follows the reference as a hidden note comment.
 
 - Hover an image in Live Preview and click the **+** in its lower-left corner to create an HTML-marked caption directly below the image, with the cursor already on the caption line. Click the caption text or its blank area to edit an existing caption.
 - The button draws an 11 px monochrome cross inside a 24 px transparent hit area. It steps aside when native image tools or overlays occupy the lower-left corner, and it stays hidden on images that already have a caption.
@@ -10,16 +13,18 @@ Write Markdown captions under images in Obsidian. Author them in Live Preview, r
 - Captions support multiple paragraphs, emphasis, internal and external links, lists, and inline or block formulas. A formula wider than the image scrolls horizontally inside the formula area.
 - Wiki images, native size parameters, and local or remote Markdown images are supported. Paragraph and list-item boundaries stop the match, so unrelated text is never captured.
 - Empty captions show a placeholder in Live Preview and disappear in Reading View. An unpaired caption retains its text.
-- Adding and editing integrate with Obsidian's undo and redo. To delete a caption, remove its two markers and the text between them. For a legacy caption, remove its entire fence.
+- Adding and editing integrate with Obsidian's undo and redo. To delete a caption, remove its two markers and the text between them.
 
 ## Install with BRAT
+
+The installation ID remains `image-caption-peng` for upgrades from Image Caption Peng.
 
 [BRAT](https://github.com/TfTHacker/obsidian42-brat) is the distribution channel for this plugin: it installs from this repository's GitHub Releases and delivers later versions to the same vault.
 
 1. Install **BRAT** from Obsidian's Community Plugins and enable it.
 2. Open the command palette and run **BRAT: Add a beta plugin for testing**.
-3. Enter the repository `TheodorePeng/obsidian-image-caption-peng` and click **Add Plugin**.
-4. Open Settings → Community plugins, refresh the list, and enable **Image Caption Peng**.
+3. Enter the repository `TheodorePeng/live-image-editor-peng` and click **Add Plugin**.
+4. Open Settings → Community plugins, refresh the list, and enable **Live Image Editor Peng**.
 
 To update, run **BRAT: Check for updates to all beta plugins and UPDATE** from the command palette.
 
@@ -27,9 +32,18 @@ Every release ships three assets — `main.js`, `manifest.json`, and `styles.css
 
 ## Manual installation
 
-Copy `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/TheodorePeng/obsidian-image-caption-peng/releases/latest) into `<vault>/.obsidian/plugins/image-caption-peng/`, using the matching `plugins/` directory for a vault with a custom config folder. Then enable **Image Caption Peng** under **Settings → Community plugins**. If the plugin list does not show the new folder, refresh the list or reopen the vault.
+Copy `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/TheodorePeng/live-image-editor-peng/releases/latest) into `<vault>/.obsidian/plugins/image-caption-peng/`, using the matching `plugins/` directory for a vault with a custom config folder. Then enable **Live Image Editor Peng** under **Settings → Community plugins**. If the plugin list does not show the new folder, refresh the list or reopen the vault.
 
 ## Syntax
+
+Crop metadata is written by the dialog. Keep it on the same line as its image reference when moving a cropped image.
+
+```markdown
+![[beam.png|251]] <!-- live-image-editor-peng:v1 {"crop":[0.15,0.2,0.6,0.5]} -->
+```
+
+Caption example:
+
 
 ````markdown
 ![[beam.png|300]]
@@ -58,7 +72,7 @@ Inside a list, keep the image, both markers, and the caption text in the same li
     <!-- image-caption:end -->
 ````
 
-One image occupies its own line. The plus inserts the opening marker immediately after the image and focuses the caption line. Leave a blank line before the closing marker, especially after a list inside the caption. Text between the comments is native Markdown, so Obsidian indexes its internal links. Existing `image-caption` code fences remain editable and keep their original syntax. When moving an image manually, move its caption with it.
+One image occupies its own line. The plus inserts the opening marker immediately after the image and focuses the caption line. Leave a blank line before the closing marker, especially after a list inside the caption. Text between the comments is native Markdown, so Obsidian indexes its internal links. When moving an image manually, move its caption with it.
 
 ## Lists and indentation
 
@@ -80,11 +94,14 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-# Image Caption Peng 中文说明
+# Live Image Editor Peng 中文说明
 
-在 Obsidian 的图片下方写 Markdown 图注。使用 Live Preview 添加和编辑，使用 Reading View 阅读。首版适配 macOS Obsidian 1.15.1。
+在 Obsidian 中裁剪本地图片并编写 Markdown 图注。在 Live Preview 编辑，在两种视图查看结果。支持桌面端 Obsidian 1.15.1 或更新版本。
 
 ## 功能
+
+- 在 Live Preview 悬停本地图片并点击 **裁剪**。拖动选区或手柄后确认。再次打开裁剪可调整选区或恢复原图。
+- 每次图片引用可保存独立裁剪。裁剪参数以隐藏注释随引用保存，原附件保持原样。
 
 - 在 Live Preview 中把鼠标移到还没有图注的图片上，点击图片内左下角的 **+**，直接输入图注。两条 HTML 注释标出图注的范围。已有图注的图片，点击图注正文或空白处即可编辑。
 - 按钮使用 11 px 的单色十字和 24 px 的透明点击区。图片工具或浮层占用左下角时，按钮在图片内避让。图片太小、没有安全空位时，优先保留现有控件的操作空间。已有图注时加号隐藏。
@@ -92,16 +109,18 @@ See [CHANGELOG.md](CHANGELOG.md).
 - 图注支持多段落、强调、内外部链接、列表与行内／块级公式。宽公式可以在公式区域横向滚动。
 - 支持 Wiki 图片、原生尺寸参数以及本地和远程 Markdown 图片。段落和列表项边界会中断匹配，不会误收无关文本。
 - 空图注在 Live Preview 中显示「添加图注内容」，在 Reading View 中隐藏。图注失联后仍保留正文。
-- 添加和编辑可以使用 Obsidian 的撤销／重做。删除图注时，移除两条标记和其中的正文。旧格式请移除整个围栏。
+- 添加和编辑可以使用 Obsidian 的撤销／重做。删除图注时，移除两条标记和其中的正文。
 
 ## 通过 BRAT 安装
+
+从 Image Caption Peng 升级时，安装 ID 仍为 `image-caption-peng`。
 
 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 是本插件的分发渠道：它从本仓库的 GitHub Releases 安装，并把后续版本更新到同一个 Vault。
 
 1. 在 Obsidian 社区插件市场安装并启用 **BRAT**。
 2. 打开命令面板，运行 **BRAT: Add a beta plugin for testing**。
-3. 输入仓库地址 `TheodorePeng/obsidian-image-caption-peng`，点击 **Add Plugin**。
-4. 打开 **设置 → 第三方插件**，刷新列表后启用 **Image Caption Peng**。
+3. 输入仓库地址 `TheodorePeng/live-image-editor-peng`，点击 **Add Plugin**。
+4. 打开 **设置 → 第三方插件**，刷新列表后启用 **Live Image Editor Peng**。
 
 更新时在命令面板运行 **BRAT: Check for updates to all beta plugins and UPDATE**。
 
@@ -109,9 +128,18 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## 手动安装
 
-从 [最新版本](https://github.com/TheodorePeng/obsidian-image-caption-peng/releases/latest) 下载 `main.js`、`manifest.json` 和 `styles.css`，复制到 Vault 的 `.obsidian/plugins/image-caption-peng/`。自定义配置目录的 Vault 使用对应的 `plugins/` 目录。然后在 **设置 → 第三方插件** 启用 **Image Caption Peng**。如果插件列表还未发现新目录，刷新插件列表或重新打开 Vault。
+从 [最新版本](https://github.com/TheodorePeng/live-image-editor-peng/releases/latest) 下载 `main.js`、`manifest.json` 和 `styles.css`，复制到 Vault 的 `.obsidian/plugins/image-caption-peng/`。自定义配置目录的 Vault 使用对应的 `plugins/` 目录。然后在 **设置 → 第三方插件** 启用 **Live Image Editor Peng**。如果插件列表还未发现新目录，刷新插件列表或重新打开 Vault。
 
 ## 语法
+
+裁剪对话框自动写入注释。移动裁剪过的图片时，将这一行的图片引用和注释一起移动。
+
+```markdown
+![[beam.png|251]] <!-- live-image-editor-peng:v1 {"crop":[0.15,0.2,0.6,0.5]} -->
+```
+
+图注示例：
+
 
 ````markdown
 ![[beam.png|300]]
@@ -140,7 +168,7 @@ See [CHANGELOG.md](CHANGELOG.md).
     <!-- image-caption:end -->
 ````
 
-一张图片独占一行。点击加号后，开始标记紧接图片下一行，光标落在图注输入行。结束标记前留一空行，图注以列表结尾时尤其需要。标记之间是原生 Markdown，Obsidian 会索引其中的内部链接。旧 `image-caption` 代码围栏仍可显示和编辑，编辑时保留原格式。手工移动图片时，请一并移动图注。
+一张图片独占一行。点击加号后，开始标记紧接图片下一行，光标落在图注输入行。结束标记前留一空行，图注以列表结尾时尤其需要。标记之间是原生 Markdown，Obsidian 会索引其中的内部链接。手工移动图片时，请一并移动图注。
 
 ## 列表与缩进
 

@@ -1,6 +1,13 @@
 # Changelog
 
-本文件保留各版本的验收记录，正文为中文。发布版本的说明同时出现在 [GitHub Releases](https://github.com/TheodorePeng/obsidian-image-caption-peng/releases) 页面。
+本文件保留各版本的验收记录，正文为中文。发布版本的说明同时出现在 [GitHub Releases](https://github.com/TheodorePeng/live-image-editor-peng/releases) 页面。
+
+## 0.2.0
+
+- 改名为 Live Image Editor Peng，沿用安装 ID `image-caption-peng`。
+- 新增本地图片非破坏性裁剪。在 Live Preview 裁剪、重裁或恢复原图。两个视图按每次图片引用显示独立裁剪，原附件不写入。
+- 移除旧代码围栏图注的专用处理。HTML 注释图注继续按图片显示，并跟随裁剪后的宽度。
+- 已在 macOS 测试 Vault 验证真实拖拽、撤销／重做、重开、插件停用恢复，以及重复引用、嵌套列表、Callout 和表格。原图哈希与测试附件清单一致。
 
 ## 0.1.8
 
