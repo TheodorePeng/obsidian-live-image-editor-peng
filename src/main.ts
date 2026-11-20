@@ -14,7 +14,7 @@ import { captionIndex, captionInsertion, type ImageSource } from "./caption-sour
 import { captionClass } from "./figure-layout";
 import { NativeCaptionReading, NativeCaptionReadingSection } from "./native-caption-reading";
 import { NativeCaptionLines, nativeCaptionRows } from "./native-caption-lines";
-import { imageActionPosition } from "./image-action-placement";
+import { imageActionCompanion, imageActionGap, imageActionPosition } from "./image-action-placement";
 import { captionIndentExtension } from "./indent-extension";
 import { CropDisplay, CropReadingSection, liveImagePairs, supportsCrop } from "./crop-render";
 import { cropMarkers } from "./crop-markers";
@@ -50,7 +50,8 @@ function containsPoint(rect: DOMRectReadOnly, x: number, y: number): boolean {
 }
 
 class ImageActions {
-  private readonly button: HTMLButtonElement;
+  private readonly group: HTMLElement;
+  private readonly captionButton: HTMLButtonElement;
   private readonly cropButton: HTMLButtonElement;
   private readonly cropDisplay = new CropDisplay();
   private imagePairs = new Map<HTMLImageElement, ImageReference>();
@@ -65,6 +66,7 @@ class ImageActions {
   private leaveTimer?: number;
   private controlObserver?: MutationObserver;
   private controlRoots: readonly HTMLElement[] = [];
+  private insertingCaption = false;
   // Consume the second click at the former button position after it has disappeared.
   private lastAction?: { rect: DOMRect; until: number };
 
@@ -74,8 +76,13 @@ class ImageActions {
     private readonly plugin: ImageEditorPlugin
   ) {
     this.cssChanged = workspace.on("css-change", this.imageChanged);
-    this.button = this.createAction(addLabel, "plus", this.activate);
+    this.group = view.dom.createDiv({
+      cls: "live-image-editor-peng__actions",
+      attr: { role: "group", "aria-label": "图片操作" }
+    });
+    this.group.hidden = true;
     this.cropButton = this.createAction(cropLabel, "crop", this.activateCrop);
+    this.captionButton = this.createAction(addLabel, "plus", this.activate);
     view.dom.addEventListener("pointerdown", this.skipRepeatedAction, true);
     view.dom.addEventListener("mousedown", this.skipRepeatedAction, true);
     view.dom.addEventListener("click", this.skipRepeatedAction, true);
@@ -88,6 +95,7 @@ class ImageActions {
     view.dom.addEventListener("error", this.imageChanged, true);
     const win = view.dom.doc.defaultView;
     if (win) {
+      win.addEventListener("pointerup", this.finishNativeResize, { capture: true, passive: true });
       this.resizeObserver = new win.ResizeObserver(this.imageChanged);
       this.resizeObserver.observe(view.scrollDOM);
     }
@@ -95,8 +103,7 @@ class ImageActions {
   }
 
   private createAction(label: string, icon: string, activate: (event: MouseEvent) => void): HTMLButtonElement {
-    const button = this.view.dom.createEl("button", {
-      cls: `${captionClass}__add`,
+    const button = this.group.createEl("button", {
       attr: { type: "button", "aria-label": label, title: label }
     });
     button.hidden = true;
@@ -110,7 +117,10 @@ class ImageActions {
   update(update: ViewUpdate): void {
     const modeChanged = update.startState.field(editorLivePreviewField, false) !== update.state.field(editorLivePreviewField, false);
     if (modeChanged) this.pointerLeave();
-    if (update.docChanged) this.hideButton();
+    if (update.docChanged) {
+      if (this.insertingCaption && this.hovered) this.hovered.doc = update.state.doc;
+      else this.hideActions();
+    }
     if (update.docChanged || update.selectionSet || update.viewportChanged || update.geometryChanged || modeChanged ||
         update.transactions.some(transaction => transaction.reconfigured)) {
       this.queueRefresh();
@@ -132,22 +142,23 @@ class ImageActions {
     this.view.scrollDOM.removeEventListener("scroll", this.scrollChanged);
     this.view.dom.removeEventListener("load", this.imageChanged, true);
     this.view.dom.removeEventListener("error", this.imageChanged, true);
+    this.view.dom.doc.defaultView?.removeEventListener("pointerup", this.finishNativeResize, true);
     this.resizeObserver?.disconnect();
     this.workspace.offref(this.cssChanged);
     this.nativeCaptionLines.clear();
     this.observedFigureElements.clear();
-    this.button.removeEventListener("pointerdown", this.keepEditorFocus);
-    this.button.removeEventListener("click", this.activate);
-    this.button.removeEventListener("blur", this.pointerBlur);
-    this.hideButton();
+    this.hideActions();
     if (this.frame !== undefined) this.view.dom.ownerDocument.defaultView?.cancelAnimationFrame(this.frame);
-    this.button.remove();
-    this.cropButton.remove();
+    this.group.remove();
     this.cropDisplay.clear();
   }
 
   private readonly imageChanged = (): void => this.queueRefresh();
   private readonly scrollChanged = (): void => this.queueRefresh(false);
+
+  private readonly finishNativeResize = (event: PointerEvent): void => {
+    if (event.isPrimary && event.button === 0) this.cropDisplay.preserveWidthForResizeCommit();
+  };
 
   private queueRefresh(layout = true): void {
     this.layoutPending ||= layout;
@@ -158,7 +169,7 @@ class ImageActions {
         this.layoutPending = false;
         this.refreshCaptions();
       }
-      this.refreshButton();
+      this.refreshActions();
     });
   }
 
@@ -232,33 +243,31 @@ class ImageActions {
       return;
     }
     this.pointer = undefined;
-    if (!this.actionFocused()) this.hideButton();
+    if (!this.actionFocused()) this.hideActions();
   };
 
-  private readonly pointerBlur = (): void => this.refreshButton();
+  private readonly pointerBlur = (): void => this.queueRefresh(false);
 
   private actionFocused(): boolean {
-    const active = this.button.doc.activeElement;
-    return active === this.button || active === this.cropButton;
+    return this.group.contains(this.group.doc.activeElement);
   }
 
-  private refreshButton(): void {
+  private refreshActions(): void {
     if (!livePreview(this.view)) {
-      this.hideButton();
+      this.hideActions();
       return;
     }
     const { pointer } = this;
     const target = pointer ? this.view.dom.doc.elementFromPoint(pointer.x, pointer.y) : null;
-    const overButton = this.button.contains(target) || this.cropButton.contains(target) || this.actionFocused();
+    const overGroup = this.group.contains(target) || this.actionFocused();
     const overAnchor = pointer && this.hovered &&
       containsPoint(this.hovered.image.getBoundingClientRect(), pointer.x, pointer.y);
-    if (this.hovered && (overButton || overAnchor)) {
-      if (this.hovered.doc !== this.view.state.doc || !this.positionActions(this.hovered.image, overButton)) {
-        this.hideButton();
-      } else {
+    if (this.hovered && (overGroup || overAnchor)) {
+      if (this.hovered.doc === this.view.state.doc && this.positionActions(this.hovered.image, overGroup)) {
         this.clearLeaveTimer();
+        return;
       }
-      return;
+      this.hideActions();
     }
     const host = target?.closest(".cm-line, .cm-embed-block");
     if (pointer && host && this.view.contentDOM.contains(host)) {
@@ -276,7 +285,7 @@ class ImageActions {
       }
     }
     if (this.hovered && this.leaveTimer === undefined) {
-      this.leaveTimer = this.view.dom.doc.defaultView?.setTimeout(() => this.hideButton(), leaveDelay);
+      this.leaveTimer = this.view.dom.doc.defaultView?.setTimeout(() => this.hideActions(), leaveDelay);
     }
   }
 
@@ -287,21 +296,17 @@ class ImageActions {
         (!source.marker || source.marker.crop) && supportsCrop(image)) return source;
   }
 
-  private positionActions(image: HTMLImageElement, keepCurrent = false): boolean {
-    this.button.hidden = !this.imageNeedsCaption(image) || !this.positionButton(image, this.button, keepCurrent);
-    this.cropButton.hidden = !this.cropReference(image) ||
-      !this.positionButton(image, this.cropButton, keepCurrent, this.button.hidden ? undefined : this.button.getBoundingClientRect());
-    return !this.button.hidden || !this.cropButton.hidden;
-  }
-
   private imageNeedsCaption(image: HTMLImageElement, from?: number): ImageSource | undefined {
     const source = imageAtElement(this.view, image);
     if (!source || (from !== undefined && source.from !== from)) return;
     if (!captionIndex(this.view.state.doc).captionedImages.has(source.from)) return source;
   }
 
-  private positionButton(image: HTMLImageElement, button: HTMLButtonElement, keepCurrent: boolean,
-    other?: DOMRect): boolean {
+  private positionActions(image: HTMLImageElement, keepCurrent = false): boolean {
+    const canCrop = !!this.cropReference(image);
+    const canCaption = !!this.imageNeedsCaption(image);
+    if (!canCrop && !canCaption) return false;
+    const primary = canCrop ? this.cropButton : this.captionButton;
     const picture = image.getBoundingClientRect();
     const pane = this.view.scrollDOM.getBoundingClientRect();
     const screen = this.view.dom.doc.documentElement;
@@ -320,45 +325,50 @@ class ImageActions {
       .map(control => control.getBoundingClientRect())
       .filter(box => box.right > picture.left && box.left < picture.right &&
         box.bottom > picture.top && box.top < picture.bottom && box.width > 0 && box.height > 0);
-    if (other) controls.push(other);
-    const side = button === this.cropButton ? "right" : "left";
     const externalControls = new Set<Element>();
-    if (keepCurrent && !button.hidden) {
-      const current = button.getBoundingClientRect();
+    let retained;
+    if (keepCurrent && !this.group.hidden && !primary.hidden) {
+      const current = primary.getBoundingClientRect();
       if (current.left >= Math.max(picture.left, clip.left) && current.top >= Math.max(picture.top, clip.top) &&
           current.right <= Math.min(picture.right, clip.right) && current.bottom <= Math.min(picture.bottom, clip.bottom) &&
           controls.every(box => current.right <= box.left || current.left >= box.right ||
             current.bottom <= box.top || current.top >= box.bottom) &&
           !this.externalControlAt({ left: current.left, top: current.top, size: current.width }, selector, externalControls)) {
-        this.observeControls(roots);
-        return true;
+        retained = { left: current.left, top: current.top, size: current.width };
       }
     }
-    let position = imageActionPosition(picture, clip, controls, side);
-    // Other plugins can draw clickable image controls outside the editor DOM.
-    while (position) {
+    let position = retained ?? imageActionPosition(picture, clip, controls);
+    while (!retained && position) {
       const overlap = this.externalControlAt(position, selector, externalControls);
       if (!overlap) break;
       externalControls.add(overlap);
       controls.push(overlap.getBoundingClientRect());
-      position = imageActionPosition(picture, clip, controls, side);
+      position = imageActionPosition(picture, clip, controls);
     }
     const view = this.view.dom;
     const editor = view.getBoundingClientRect();
     if (!position || !editor.width || !editor.height) return false;
 
-    // Image geometry is in viewport coordinates. The button lives in the editor's padding box.
-    const scaleX = view.offsetWidth / editor.width;
-    const scaleY = view.offsetHeight / editor.height;
-    const properties = {
-      "--image-caption-action-left": `${(position.left - editor.left) * scaleX - view.clientLeft}px`,
-      "--image-caption-action-top": `${(position.top - editor.top) * scaleY - view.clientTop}px`,
-      "--image-caption-action-width": `${position.size * scaleX}px`,
-      "--image-caption-action-height": `${position.size * scaleY}px`
-    };
-    for (const [property, value] of Object.entries(properties)) {
-      if (button.style.getPropertyValue(property) !== value) button.setCssProps({ [property]: value });
+    if (!retained) {
+      // Convert viewport geometry to the editor's padding box.
+      const scaleX = view.offsetWidth / editor.width;
+      const scaleY = view.offsetHeight / editor.height;
+      const properties = {
+        "--image-action-left": `${(position.left - editor.left) * scaleX - view.clientLeft}px`,
+        "--image-action-top": `${(position.top - editor.top) * scaleY - view.clientTop}px`,
+        "--image-action-width": `${position.size * scaleX}px`,
+        "--image-action-height": `${position.size * scaleY}px`,
+        "--image-action-gap": `${imageActionGap * scaleX}px`
+      };
+      for (const [property, value] of Object.entries(properties)) {
+        if (this.group.style.getPropertyValue(property) !== value) this.group.setCssProps({ [property]: value });
+      }
     }
+    const companion = canCrop && canCaption && imageActionCompanion(picture, clip, controls, position);
+    this.cropButton.hidden = !canCrop;
+    this.captionButton.hidden = canCrop &&
+      (!companion || !!this.externalControlAt(companion, selector, externalControls));
+    this.group.hidden = false;
     this.observeControls(roots);
     return true;
   }
@@ -421,13 +431,14 @@ class ImageActions {
     this.leaveTimer = undefined;
   }
 
-  private hideButton(): void {
+  private hideActions(): void {
     this.clearLeaveTimer();
     this.hovered = undefined;
     this.view.dom.doc.removeEventListener("pointermove", this.outsidePointerMove);
     this.controlObserver?.disconnect();
     this.controlRoots = [];
-    this.button.hidden = true;
+    this.group.hidden = true;
+    this.captionButton.hidden = true;
     this.cropButton.hidden = true;
   }
 
@@ -436,21 +447,28 @@ class ImageActions {
     event.stopPropagation();
     const anchor = this.hovered;
     const { doc } = this.view.state;
-    const rect = this.button.getBoundingClientRect();
-    this.pointer = undefined;
-    this.hideButton();
-    if (!anchor || anchor.doc !== doc || !livePreview(this.view)) return;
-    const source = this.imageNeedsCaption(anchor.image, anchor.from);
-    if (!source) return;
+    const rect = this.captionButton.getBoundingClientRect();
+    const source = anchor?.doc === doc && livePreview(this.view) && this.imageNeedsCaption(anchor.image, anchor.from);
+    if (!source) {
+      this.hideActions();
+      return;
+    }
 
     this.lastAction = { rect, until: Date.now() + 500 };
     const { from, insert, cursor } = captionInsertion(doc, source);
-    this.view.dispatch({
-      changes: { from, insert },
-      selection: { anchor: cursor },
-      annotations: [Transaction.userEvent.of("input"), isolateHistory.of("full")],
-      scrollIntoView: true
-    });
+    this.captionButton.hidden = true;
+    if (this.cropButton.hidden) this.hideActions();
+    this.insertingCaption = true;
+    try {
+      this.view.dispatch({
+        changes: { from, insert },
+        selection: { anchor: cursor },
+        annotations: [Transaction.userEvent.of("input"), isolateHistory.of("full")],
+        scrollIntoView: true
+      });
+    } finally {
+      this.insertingCaption = false;
+    }
     this.view.focus();
   };
 
@@ -459,7 +477,7 @@ class ImageActions {
     event.stopPropagation();
     const anchor = this.hovered;
     this.pointer = undefined;
-    this.hideButton();
+    this.hideActions();
     const { view } = this;
     const { doc } = view.state;
     if (!anchor || anchor.doc !== doc || !livePreview(view)) return;

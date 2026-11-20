@@ -56,6 +56,14 @@ export function cropInset([x, y, width, height]: Crop): string {
   return `inset(${y * 100}% ${Math.max(0, 1 - x - width) * 100}% ${Math.max(0, 1 - y - height) * 100}% ${x * 100}%)`;
 }
 
+export function cropWidthForHeight([,, width, height]: Crop, naturalWidth: number, naturalHeight: number,
+  heightAttribute: string | null): number | undefined {
+  const limit = Number(heightAttribute);
+  if (Number.isFinite(limit) && limit > 0) {
+    return limit * (naturalWidth * width) / (naturalHeight * height);
+  }
+}
+
 export const cropHandles = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
 export type CropHandle = (typeof cropHandles)[number] | "move";
 

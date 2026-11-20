@@ -3,12 +3,20 @@ import { test } from "node:test";
 import { history, isolateHistory, redo, undo } from "@codemirror/commands";
 import { EditorState, Text } from "@codemirror/state";
 import { captionIndex, captionInsertion } from "../src/caption-source";
-import { cropChange, cropInset, moveCrop, type Crop } from "../src/crop-state";
+import { cropChange, cropInset, cropWidthForHeight, moveCrop, type Crop } from "../src/crop-state";
 import { imageReferences } from "../src/image-source";
 
 const doc = (source: string) => Text.of(source.split("\n"));
 const crop = [0.25, 0.25, 0.5, 0.25] as const;
 const marker = ' <!-- live-image-editor-peng:v1 {"crop":[0.25,0.25,0.5,0.25]} -->';
+
+void test("only supplies a width limit for a positive native height, using the cropped aspect ratio", () => {
+  equal(cropWidthForHeight(crop, 640, 320, "40"), 160);
+  equal(cropWidthForHeight([0, 0, 0.5, 1], 640, 320, "40"), 40);
+  for (const attribute of [null, "", "0", "-1", "auto", "Infinity"]) {
+    equal(cropWidthForHeight(crop, 640, 320, attribute), undefined);
+  }
+});
 
 void test("indexes WikiLinks and Markdown images in text, Callouts, and GFM table cells", () => {
   const source = doc([

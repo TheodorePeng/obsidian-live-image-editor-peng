@@ -1,41 +1,48 @@
-.cm-editor > button.image-caption-peng__add[hidden] {
+.cm-editor > .live-image-editor-peng__actions[hidden],
+.live-image-editor-peng__actions > button[hidden] {
   display: none;
 }
 
-.cm-editor > button.image-caption-peng__add {
+.cm-editor > .live-image-editor-peng__actions {
   position: absolute;
-  box-sizing: border-box;
   z-index: 5;
-  left: var(--image-caption-action-left);
-  top: var(--image-caption-action-top);
+  left: var(--image-action-left);
+  top: var(--image-action-top);
+  display: flex;
+  direction: ltr;
+  gap: var(--image-action-gap);
+  pointer-events: none;
+}
+
+.live-image-editor-peng__actions > button {
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: 100%;
-  grid-template-rows: 100%;
   place-items: center;
-  width: var(--image-caption-action-width);
-  height: var(--image-caption-action-height);
+  flex: none;
+  width: var(--image-action-width);
+  height: var(--image-action-height);
   min-width: 0;
   min-height: 0;
   padding: 0;
   appearance: none;
   color: var(--text-normal);
-  background: transparent;
   border: 0;
-  box-shadow: none;
   cursor: pointer;
+  pointer-events: auto;
 }
 
-.image-caption-peng__add > svg {
+.cm-editor > .live-image-editor-peng__actions,
+.cm-editor > .live-image-editor-peng__actions > button {
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.live-image-editor-peng__actions > button > svg {
   width: min(11px, 72%);
   height: min(11px, 72%);
 }
 
-.cm-editor > button.image-caption-peng__add:is(:hover, :active) {
-  background: transparent;
-  box-shadow: none;
-}
-
-.image-caption-peng__add:focus-visible {
+.live-image-editor-peng__actions > button:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: -2px;
 }
@@ -182,9 +189,21 @@
 
 img.live-image-editor-peng--cropped {
   object-view-box: var(--live-image-editor-crop-inset);
-  width: var(--live-image-editor-crop-width);
   max-width: 100%;
   height: auto;
+}
+
+img.live-image-editor-peng--cropped[height] {
+  max-width: min(100%, var(--img-max-width, 100%), var(--live-image-editor-crop-height-width, 100%)) !important;
+}
+
+img.live-image-editor-peng--cropped[height]:not([width]) {
+  width: var(--live-image-editor-crop-height-width, auto);
+}
+
+.cm-content .is-resizing img.live-image-editor-peng--cropped[height],
+.cm-content img.live-image-editor-peng--cropped.live-image-editor-peng--resize-commit[height] {
+  max-width: min(100%, var(--img-max-width, 100%)) !important;
 }
 
 .live-image-editor-peng__modal {

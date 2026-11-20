@@ -1,13 +1,14 @@
 import { Text } from "@codemirror/state";
 import { BlockType, type EditorView } from "@codemirror/view";
 import { MarkdownRenderChild, type App, type MarkdownPostProcessorContext } from "obsidian";
-import { cropInset, type Crop } from "./crop-state";
+import { cropInset, cropWidthForHeight, type Crop } from "./crop-state";
 import { imageReferences, type ImageReference } from "./image-source";
 import { isLocalImageTarget, sameImage } from "./image-target";
 
 const croppedClass = "live-image-editor-peng--cropped";
+const resizeCommitClass = "live-image-editor-peng--resize-commit";
 const insetProperty = "--live-image-editor-crop-inset";
-const widthProperty = "--live-image-editor-crop-width";
+const heightWidthProperty = "--live-image-editor-crop-height-width";
 const liveHost = ".cm-line, .cm-embed-block";
 const excluded = ".markdown-embed, button, [role=button]";
 
@@ -16,20 +17,13 @@ export function supportsCrop(image: HTMLImageElement): boolean {
 }
 
 function applyCrop(image: HTMLImageElement, crop: Crop): void {
-  const [,, width, height] = crop;
-  const naturalWidth = image.naturalWidth * width;
-  const ratio = naturalWidth / (image.naturalHeight * height);
-  const specified = (attribute: string) => {
-    const value = Number(image.getAttribute(attribute));
-    return Number.isFinite(value) && value > 0 ? value : undefined;
-  };
-  const maxHeight = specified("height");
-  const preferredWidth = specified("width") ?? (maxHeight ? maxHeight * ratio : naturalWidth);
-  const displayWidth = maxHeight ? Math.min(preferredWidth, maxHeight * ratio) : preferredWidth;
   const inset = cropInset(crop);
-  const widthValue = `${displayWidth}px`;
+  const heightWidth = cropWidthForHeight(crop, image.naturalWidth, image.naturalHeight, image.getAttribute("height"));
+  const heightWidthValue = heightWidth === undefined ? "" : `${heightWidth}px`;
   if (image.style.getPropertyValue(insetProperty) !== inset) image.style.setProperty(insetProperty, inset);
-  if (image.style.getPropertyValue(widthProperty) !== widthValue) image.style.setProperty(widthProperty, widthValue);
+  if (image.style.getPropertyValue(heightWidthProperty) !== heightWidthValue) {
+    image.style.setProperty(heightWidthProperty, heightWidthValue);
+  }
   if (!image.hasClass(croppedClass)) image.addClass(croppedClass);
 }
 
@@ -40,9 +34,9 @@ export class CropDisplay {
     for (const image of this.images) {
       const source = pairs.get(image);
       if (!source?.marker?.crop || !isLocalImageTarget(source.target)) {
-        image.removeClass(croppedClass);
+        image.removeClass(croppedClass, resizeCommitClass);
         image.style.removeProperty(insetProperty);
-        image.style.removeProperty(widthProperty);
+        image.style.removeProperty(heightWidthProperty);
         this.images.delete(image);
       }
     }
@@ -52,6 +46,15 @@ export class CropDisplay {
         applyCrop(image, crop);
         this.images.add(image);
       }
+    }
+  }
+
+  preserveWidthForResizeCommit(): void {
+    for (const image of this.images) {
+      if (!image.hasAttribute("height") || !image.closest(".is-resizing")) continue;
+      // Obsidian clears its drag state before reading clientWidth on pointerup.
+      image.addClass(resizeCommitClass);
+      image.win.requestAnimationFrame(() => image.removeClass(resizeCommitClass));
     }
   }
 

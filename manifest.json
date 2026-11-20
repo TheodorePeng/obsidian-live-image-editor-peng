@@ -1,7 +1,7 @@
 {
   "id": "image-caption-peng",
   "name": "Live Image Editor Peng",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minAppVersion": "1.15.1",
   "description": "Crop local images non-destructively and add Markdown captions in Live Preview and Reading View.",
   "author": "Peng",

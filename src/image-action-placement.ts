@@ -13,14 +13,26 @@ interface ActionPosition {
 
 const preferredSize = 24;
 const minimumSize = 16;
+export const imageActionGap = 4;
 
-export function imageActionPosition(picture: Bounds, clip: Bounds, controls: readonly Bounds[], side: "left" | "right" = "left"): ActionPosition | undefined {
+export function imageActionPosition(picture: Bounds, clip: Bounds, controls: readonly Bounds[]): ActionPosition | undefined {
   const mirror = ({ left, right, top, bottom }: Bounds): Bounds =>
-    ({ left: side === "left" ? -right : left, right: side === "left" ? -left : right, top: -bottom, bottom: -top });
+    ({ left: -right, right: -left, top: -bottom, bottom: -top });
   const position = cornerPosition(mirror(picture), mirror(clip), controls.map(mirror));
   if (position) {
-    return { left: side === "left" ? -position.left - position.size : position.left, top: -position.top - position.size, size: position.size };
+    return { left: -position.left - position.size, top: -position.top - position.size, size: position.size };
   }
+}
+
+export function imageActionCompanion(picture: Bounds, clip: Bounds, controls: readonly Bounds[], primary: ActionPosition): ActionPosition | undefined {
+  const { left, top, size } = primary;
+  const companion = { left: left + size + imageActionGap, top, size };
+  const right = companion.left + size;
+  const bottom = top + size;
+  if (right > Math.min(picture.right, clip.right)) return;
+  if (controls.some(control => left + size < control.right && right > control.left &&
+      top < control.bottom && bottom > control.top)) return;
+  return companion;
 }
 
 function cornerPosition(picture: Bounds, clip: Bounds, controls: readonly Bounds[]): ActionPosition | undefined {

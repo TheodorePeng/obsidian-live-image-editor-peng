@@ -7,8 +7,8 @@ Crop local images and write Markdown captions in Obsidian. Edit in Live Preview 
 - Hover a local image in Live Preview and click **Crop**. Drag the selection or its handles, then confirm. Open Crop again to adjust the selection or restore the original image.
 - Each image reference has its own crop. The original attachment stays intact, and the crop follows the reference as a hidden note comment.
 
-- Hover an image in Live Preview and click the **+** in its lower-left corner to create an HTML-marked caption directly below the image, with the cursor already on the caption line. Click the caption text or its blank area to edit an existing caption.
-- The button draws an 11 px monochrome cross inside a 24 px transparent hit area. It steps aside when native image tools or overlays occupy the lower-left corner, and it stays hidden on images that already have a caption.
+- Hover an image in Live Preview and click the **+** next to Crop in the lower-left image controls to create an HTML-marked caption directly below the image, with the cursor already on the caption line. Click the caption text or its blank area to edit an existing caption.
+- The lower-left group keeps **Crop** first. The **+** appears to its right while there is space and the image has no caption. When only captioning is available, **+** appears by itself. The group respects native image controls and overlays.
 - A matched caption renders as a tinted strip attached under the image in both Live Preview and Reading View. It wraps to the image's actual displayed width and keeps following the image when the width changes.
 - Captions support multiple paragraphs, emphasis, internal and external links, lists, and inline or block formulas. A formula wider than the image scrolls horizontally inside the formula area.
 - Wiki images, native size parameters, and local or remote Markdown images are supported. Paragraph and list-item boundaries stop the match, so unrelated text is never captured.
@@ -103,8 +103,8 @@ See [CHANGELOG.md](CHANGELOG.md).
 - 在 Live Preview 悬停本地图片并点击 **裁剪**。拖动选区或手柄后确认。再次打开裁剪可调整选区或恢复原图。
 - 每次图片引用可保存独立裁剪。裁剪参数以隐藏注释随引用保存，原附件保持原样。
 
-- 在 Live Preview 中把鼠标移到还没有图注的图片上，点击图片内左下角的 **+**，直接输入图注。两条 HTML 注释标出图注的范围。已有图注的图片，点击图注正文或空白处即可编辑。
-- 按钮使用 11 px 的单色十字和 24 px 的透明点击区。图片工具或浮层占用左下角时，按钮在图片内避让。图片太小、没有安全空位时，优先保留现有控件的操作空间。已有图注时加号隐藏。
+- 在 Live Preview 中把鼠标移到还没有图注的图片上，点击图片左下角操作组里的 **+**，直接输入图注。两条 HTML 注释标出图注的范围。已有图注的图片，点击图注正文或空白处即可编辑。
+- 左下角操作组将 **裁剪** 放在第一位。图片没有图注且空间足够时，右侧显示 **+**。仅支持添加图注时，单独显示 **+**。按钮会避让原生图片控件和浮层。
 - 已匹配的图注以主题浅底色条贴在图片下方，Live Preview 和 Reading View 一致。底色条随图片的实际显示宽度换行，图片宽度变化时继续跟随。
 - 图注支持多段落、强调、内外部链接、列表与行内／块级公式。宽公式可以在公式区域横向滚动。
 - 支持 Wiki 图片、原生尺寸参数以及本地和远程 Markdown 图片。段落和列表项边界会中断匹配，不会误收无关文本。

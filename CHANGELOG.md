@@ -2,6 +2,13 @@
 
 本文件保留各版本的验收记录，正文为中文。发布版本的说明同时出现在 [GitHub Releases](https://github.com/TheodorePeng/live-image-editor-peng/releases) 页面。
 
+## 0.2.1
+
+- 合并左下角图片悬浮按钮：**裁剪** 固定在首位，**+** 紧贴其右侧 4 px。右侧空间被图片边缘裁切或被原生控件占用时 **+** 隐藏，仅保留裁剪。
+- 带数值 `height` 属性的图片按裁剪比例反推显示宽度，拖动缩放提交后宽度不再跳变。
+- 插入图注期间保留悬停文档引用，操作组不再被中途销毁；点击 **+** 后立即隐藏。
+- 新增 3 项自动化测试（共 32 项），类型检查、ESLint 与构建通过。本版未做测试 Vault 手工验收。
+
 ## 0.2.0
 
 - 改名为 Live Image Editor Peng，沿用安装 ID `image-caption-peng`。
