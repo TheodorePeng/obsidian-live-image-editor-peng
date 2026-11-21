@@ -4,7 +4,7 @@ Crop local images and write Markdown captions in Obsidian. Edit in Live Preview 
 
 ## Features
 
-- In Live Preview, hover a local image and choose **Crop** or **Add caption**. The first caption or crop wraps that image in a figure. The original attachment is preserved.
+- In Live Preview, hover a local image and choose **Crop** or **Add Caption**. The first caption or crop wraps that image in a figure. The original attachment is preserved.
 - A figure displays one image with its optional Markdown caption. Use the compact lower-left buttons or the image menu. Click a caption and type directly underneath the image. Obsidian handles Markdown, wikilink suggestions and undo in the same editor. For a figure with a caption, click its text or choose **Edit caption** from the image menu. The lower-right handle adjusts the displayed size.
 - While editing a caption, Live Preview shows the opening and closing comments. Press **Enter** at the end of the closing comment to start a line outside the figure. Use **Edit Markdown** in the image menu to reach those markers directly.
 - Select the image and press **Shift+Tab** to move the figure up one level. **Tab** moves it back to its previous position or into the preceding eligible bullet. These keys move the figure only. The image menu also offers the available moves. Each move is one undo step.
@@ -45,7 +45,9 @@ If a figure has a caption and no crop, start it with `<!-- live-image-figure:v1 
 
 ### Unordered lists and Canvas
 
-A single image at the end of a list item's text becomes a continuation of that item when first edited. The link and title stay with the item. To create a figure with its own bullet, start a child bullet with the opening comment and indent the image, caption and closing comment to that child's content column.
+An image at the end of a titled bullet moves to the next line when first cropped or captioned. A continuation image stays under its item. A child bullet containing only an image becomes a continuation of its parent. Both figure comments start on their own lines. For an older misaligned figure, right-click the image and choose **Align list indentation** (对齐列表缩进) when available.
+
+Choose **Select Figure Source** from the image menu or the command palette, then use the normal copy shortcut. To repair a figure, select everything from the opening comment to the closing comment and run **Repair Selected Figure Indentation**. The opening comment gives the indentation. An empty caption takes up no space in Live Preview or Reading View. Use **Add Caption** on the image or in its context menu to open the caption editor.
 
 In Canvas, double-click a Markdown file or text card to edit it. File cards save to the source note. Text cards save to the card. Notes embedded in a text card show their figures and can be edited in the source note. Direct image-file cards, tables, quotes and Callouts use their native rendering.
 
@@ -65,7 +67,7 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## 功能
 
-- 在 Live Preview 悬停本地图片，点击左下角 **裁剪** 或 **添加图注**。添加图注或首次确认裁剪时创建图块，原附件保留原样。
+- 在 Live Preview 悬停本地图片，点击左下角 **裁剪** 或 **Add Caption**。添加图注或首次确认裁剪时创建图块，原附件保留原样。
 - 每个图块包含一张图和可选的 Markdown 图注。点击图片下方的图注即可原位编辑，可使用原生 Markdown、`[[` 链接建议和撤销。已有图注时可直接点击正文，也可在图片右键菜单选择 **编辑图注**。右下角手柄调整显示尺寸。窄图可用右键菜单打开裁剪和图注。
 - 编辑图注时显示当前图块的首尾注释。在结束注释末尾按 **Enter**，在图块外新建一行。也可从图片菜单选择 **编辑 Markdown** 到达标记。
 - 单击选中图片后按 **Shift+Tab**，将整块图文升一级。按 **Tab** 返回刚离开的原位置，或缩进到紧邻在前的合法 Bullet。图片菜单也提供当前可用的移动操作。每次移动可一步撤销。
@@ -106,7 +108,9 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ### 列表和 Canvas
 
-列表项的文字末尾只有一张图时，第一次编辑会把图移到原列表项的续行。标题及时间戳链接跟随原列表项。如果希望图块自带一个 Bullet，可在子 Bullet 的第一行写开头注释，从下一行起把图片、图注与结束注释对齐到该子项的正文列。
+裁剪或添加图注时，列表标题末尾的单张图片移到下一行。独占续行的图片继续属于原列表项，仅含图片的子 Bullet 转成父项的续行。图块首尾注释各占一行。以前生成的图块如果缩进不齐，可以右击该图片，选择 **对齐列表缩进**。
+
+从图片右键菜单或命令面板选择 **Select Figure Source**，然后使用原生复制快捷键。图块错位时，选中包括首尾注释的单个图块，运行 **Repair Selected Figure Indentation**。命令以开头注释所在列为准。空图注收起后只显示图片。点击图片上的加号或选择右键菜单中的 **Add Caption** 即可原位编辑。
 
 双击 Canvas 中的 Markdown 文件卡片或文本卡片进入编辑。文件卡片写回源笔记，文本卡片写回自身。文本卡片内嵌入的笔记可显示图块，编辑时请打开源笔记。直接拖入的图片文件卡片、表格、引用与 Callout 使用原生渲染。
 

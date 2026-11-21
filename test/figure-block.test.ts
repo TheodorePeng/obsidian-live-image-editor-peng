@@ -1,8 +1,8 @@
 import { deepEqual, equal, ok } from "node:assert/strict";
 import { test } from "node:test";
 import { history, isolateHistory, redo, undo } from "@codemirror/commands";
-import { EditorState, Text } from "@codemirror/state";
-import { canWrapImage, captionCursor, changeCrop, createCaptionRow, wrapImage, type FigureChange } from "../src/figure-change";
+import { ChangeSet, EditorState, Text } from "@codemirror/state";
+import { alignFigureIndent, canWrapImage, captionCursor, changeCrop, createCaptionRow, wrapImage, type FigureChange } from "../src/figure-change";
 import { figureClose, figureIndex, formatOpening, type Figure } from "../src/figure-source";
 import { imageReferences } from "../src/image-source";
 
@@ -152,8 +152,98 @@ void test("keeps existing empty rows and pads only the editable line in a tab-in
   const result = createCaptionRow(input, item);
   ok(result?.cursor);
   equal(result.changes.from, result.changes.to);
-  equal(result.changes.insert, " ");
+  equal(result.changes.insert, "   ");
   const updated = patch(input, result.changes);
-  equal(updated.toString(), input.toString().replace("\n \n", "\n  \n"));
+  equal(updated.toString(), input.toString().replace("\n \n", "\n    \n"));
   equal(captionCursor(updated, figure(updated)), result.cursor);
+});
+
+void test("converts titled, continuation, and image-only tab-indented bullets using the same builder", () => {
+  const timestamp = "\t- [03:09](https://example.com?t=189) Extra IPv4";
+  const fields = [
+    { before: [timestamp + " " + image], title: timestamp, opener: "\t\t", body: "\t\t", ownerRow: 2, ownsBullet: false },
+    { before: ["\t- 123", "\t\t" + image], title: "\t- 123", opener: "\t\t", body: "\t\t", ownerRow: 2, ownsBullet: false },
+    { before: ["\t- 666", "\t\t- " + image], title: "\t- 666", opener: "\t\t", body: "\t\t", ownerRow: 2, ownsBullet: false }
+  ];
+  const ops = [{ forCaption: true }, { crop: [.25, .25, .5, .25] as const }];
+  for (const sample of fields) {
+    for (const action of ops) {
+      const original = Text.of(["- Test", ...sample.before, "\t- Next", "- Tail"]);
+      const edit = wrapImage(original, imageReferences(original).references[0], action, "\t");
+      ok(edit);
+      const next = patch(original, edit.changes);
+      const result = figure(next);
+      equal(next.line(2).text, sample.title);
+      equal(next.line(3).text, sample.opener + formatOpening(action.crop ? { crop } : {}));
+      equal(next.line(4).text, sample.body + image);
+      equal(next.lineAt(result.closing.from).text, sample.body + figureClose);
+      equal(result.ownsBullet, sample.ownsBullet);
+      equal(next.lineAt(result.owner.from).number, sample.ownerRow);
+      equal(next.line(next.lines - 1).text, "\t- Next");
+      equal(next.line(next.lines).text, "- Tail");
+      equal(captionCursor(next, result), edit.cursor);
+    }
+  }
+});
+
+void test("handles space indentation, keeps equivalent authored prefixes, and leaves ordered lists native", () => {
+  const source = document(`- Root\n    - Title\n\t    ${image}\n    - Next`);
+  const wrapped = wrapImage(source, imageReferences(source).references[0], { forCaption: true }, "    ");
+  ok(wrapped);
+  const next = patch(source, wrapped.changes);
+  equal(next.line(3).text, "\t    " + starter);
+  equal(next.line(4).text, "\t    " + image);
+  equal(alignFigureIndent(next, figure(next), "    "), undefined);
+  const wide = document(`- Title ${image}\n- Next`);
+  const wideEdit = wrapImage(wide, imageReferences(wide).references[0], { forCaption: true }, "        ");
+  ok(wideEdit);
+  equal(patch(wide, wideEdit.changes).line(2).text, "  " + starter);
+  for (const source of [`1. Title ${image}`, `1. Title\n   - Child ${image}`]) {
+    const ordered = document(source);
+    equal(wrapImage(ordered, imageReferences(ordered).references[0], { forCaption: true }, "\t"), undefined);
+  }
+});
+
+void test("realigns only legacy figure whitespace and preserves metadata, relative Markdown and neighbors", () => {
+  const caption = "First [[Link]].\n\n- 21312\n  - Nested\n\nSecond paragraph.";
+  for (const standalone of [false, true]) {
+    const previous = standalone ? "          " : "      ";
+    const preferred = standalone ? "\t\t\t" : "\t\t";
+    const body = block(image, caption, { crop, future: { key: "value" } }).split("\n");
+    const rows = (prefix: string) => body.map((line, i) => i === 0 && standalone ? "\t\t- " + line : line ? prefix + line : "");
+    const note = (prefix: string) => ["- Test", "\t- Same name", "\t- Same name", ...rows(prefix), "\t- Next", "- Tail"].join("\n");
+    const original = document(note(previous));
+    const before = figure(original);
+    equal(before.caption, caption);
+    const edit = alignFigureIndent(original, before, "\t");
+    ok(edit);
+    const next = ChangeSet.of(edit, original.length).apply(original);
+    equal(next.toString(), note(preferred));
+    const aligned = figure(next);
+    equal(aligned.caption, caption);
+    equal(aligned.owner.from, before.owner.from);
+    equal(aligned.ownsBullet, standalone);
+    deepEqual(aligned.metadata, before.metadata);
+    equal(alignFigureIndent(next, aligned, "\t"), undefined);
+  }
+});
+
+void test("measures caption indentation relative to a uniform native figure body", () => {
+  const caption = "Paragraph.\n\n    Code sample\n\n- First\n  - Nested";
+  const body = block(image, caption).split("\n").map(line => line ? "\t\t" + line : "");
+  const doc = Text.of(["- Root", "\t- Title", ...body, "\t- Another"]);
+  const wrapped = figure(doc);
+  equal(wrapped.caption, caption);
+  equal(wrapped.bodyIndent, 8);
+});
+
+void test("keeps an image-only heading with descendants as a list item on a separate line", () => {
+  const input = document(`- Root\n\t- ${image}\n\t\t- Actual descendant\n\t- Neighbor`);
+  const edit = wrapImage(input, imageReferences(input).references[0], { forCaption: true }, "\t");
+  ok(edit);
+  const next = patch(input, edit.changes);
+  equal(next.line(2).text, "\t-");
+  equal(next.line(3).text, "\t\t" + starter);
+  equal(next.lineAt(figure(next).owner.from).number, 2);
+  equal(next.toString().endsWith("\t\t- Actual descendant\n\t- Neighbor"), true);
 });

@@ -25,6 +25,7 @@ export interface Figure extends Span {
   crop?: Crop;
   owner: SyntaxNode;
   indent: number;
+  bodyIndent: number;
   ownsBullet: boolean;
 }
 
@@ -86,7 +87,7 @@ export function hasOnlyBlockId(tail: string): boolean {
   return blockId.test(tail);
 }
 
-function readMetadata(raw: string): Record<string, unknown> | undefined {
+export function readMetadata(raw: string): Record<string, unknown> | undefined {
   const match = opening.exec(raw);
   if (match?.[1] !== "1") return;
   try {
@@ -108,23 +109,29 @@ function readFigure(doc: Text, start: SyntaxNode, end: SyntaxNode, owner: Syntax
   const image = imageReferences(doc).lines.get(imageLine.number)?.[0];
   if (!image || imageReferences(doc).lines.get(imageLine.number)?.length !== 1 ||
       doc.sliceString(imageLine.from, image.from).trim()) return;
-  if (columns(doc.sliceString(imageLine.from, image.from)) < indent) return;
+  const imageIndent = columns(doc.sliceString(imageLine.from, image.from));
+  if (imageIndent < indent) return;
   const suffix = doc.sliceString(image.to, imageLine.to);
   if (suffix.trim() && !hasOnlyBlockId(suffix)) return;
-  const caption: string[] = [];
+  const rows: string[] = [];
+  let bodyIndent = (ownsBullet || columns(doc.sliceString(first.from, start.from)) === imageIndent) &&
+    columns(doc.sliceString(last.from, end.from)) === imageIndent ? imageIndent : indent;
   for (let n = imageLine.number + 1; n < last.number; n++) {
     const text = doc.line(n).text;
     if (text.trim()) {
       const whitespace = /^[ \t]*/.exec(text)?.[0] ?? "";
-      if (columns(whitespace) < indent) return;
+      const width = columns(whitespace);
+      if (width < indent) return;
+      if (width < bodyIndent) bodyIndent = indent;
     }
-    caption.push(text.trim() ? removeIndent(text, indent) : "");
+    rows.push(text);
   }
+  const caption = rows.map(text => text.trim() ? removeIndent(text, bodyIndent) : "");
   while (caption.length && !caption[0].trim()) caption.shift();
   while (caption.length && !caption.at(-1)?.trim()) caption.pop();
   return {
     from: first.from, to: last.to, opening: { from: start.from, to: first.to }, closing: { from: end.from, to: last.to },
-    image, owner, indent, ownsBullet, metadata, crop: metadataCrop(metadata.crop), caption: caption.join("\n"),
+    image, owner, indent, bodyIndent, ownsBullet, metadata, crop: metadataCrop(metadata.crop), caption: caption.join("\n"),
     captionLines: { from: imageLine.to, to: last.from }
   };
 }

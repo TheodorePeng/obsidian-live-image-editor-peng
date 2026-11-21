@@ -1,14 +1,16 @@
 import { isolateHistory } from "@codemirror/commands";
+import { indentUnit } from "@codemirror/language";
 import { Annotation, Prec, Transaction, type Text } from "@codemirror/state";
 import { EditorView, keymap, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { editorInfoField, editorLivePreviewField, Menu, Notice, Plugin, setIcon, TFile } from "obsidian";
 import { canvasTextEditor, isCanvasTextEditor, type CanvasTextEditor } from "./canvas-text-editor";
 import { CropModal } from "./crop-modal";
-import { canRevealImage, canWrapImage, captionCursor, changeCrop, createCaptionRow, wrapImage, type FigureChange } from "./figure-change";
+import { alignFigureIndent, canRevealImage, canWrapImage, captionCursor, changeCrop, createCaptionRow, wrapImage, type FigureChange } from "./figure-change";
 import { cropSupported, displayCrop, preserveWidthForResizeCommit } from "./figure-display";
 import { figureContext, figureExtension } from "./figure-extension";
 import { imageMovesWithChange, moveFigure, type FigureMove, type MoveDirection } from "./figure-move";
-import { figureIndex, type Figure } from "./figure-source";
+import { figureSourceSpan, repairFigure } from "./figure-repair";
+import { figureIndex, type Figure, type Span } from "./figure-source";
 import { adjacentActionPosition, imageActionCompanion, imageActionGap, imageActionPosition, type ActionPosition } from "./image-action-placement";
 import { isLocalImageTarget, resolveTarget } from "./image-target";
 import { type ImageReference } from "./image-source";
@@ -70,7 +72,7 @@ class FigureController {
     this.toolbar = view.dom.createDiv({ cls: "live-image-editor-peng__actions", attr: { role: "group", "aria-label": "图片操作" } });
     this.toolbar.hidden = true;
     this.crop = actionButton(this.toolbar, "裁剪", "crop");
-    this.caption = actionButton(this.toolbar, "添加图注", "plus");
+    this.caption = actionButton(this.toolbar, "Add Caption", "plus");
     for (const [button, operation] of [[this.crop, "crop"], [this.caption, "caption"]] as const) {
       button.addEventListener("pointerdown", event => { if (event.button === 0) event.preventDefault(); }, { signal });
       button.addEventListener("click", event => {
@@ -86,11 +88,11 @@ class FigureController {
       this.pointer = undefined;
       this.schedule(false);
     }, { signal });
-    view.contentDOM.addEventListener("mousedown", event => this.focusPlaceholder(event), { signal, capture: true });
     view.dom.doc.addEventListener("contextmenu", event => this.contextMenu(event), { signal, capture: true });
     view.dom.addEventListener("load", () => this.schedule(), { signal, capture: true });
     view.scrollDOM.addEventListener("scroll", () => this.schedule(), { signal, passive: true });
     win.addEventListener("pointerup", () => preserveWidthForResizeCommit(this.images.keys()), { signal, capture: true });
+    if (view.hasFocus) this.plugin.editorFocused(view);
     this.schedule();
   }
 
@@ -120,9 +122,9 @@ class FigureController {
     this.toolbar.remove();
   }
 
-  private editor(): EditorTarget | undefined {
+  private editor(requireLive = true): EditorTarget | undefined {
     const { view } = this;
-    if (!view.dom.isConnected || view.state.field(editorLivePreviewField, false) !== true) return;
+    if (!view.dom.isConnected || (requireLive && view.state.field(editorLivePreviewField, false) !== true)) return;
     const file = view.state.field(editorInfoField, false)?.file;
     if (file) return { owner: file, path: file.path, writable: !view.state.readOnly };
     if (!this.canvas || !isCanvasTextEditor(this.canvas, view)) {
@@ -245,7 +247,7 @@ class FigureController {
         if (!view.dom.contains(tile)) return true;
         const row = tile.closest(".cm-line, .cm-embed-block");
         // A blank editor line can be the margin below the image. Keep nearby text, widgets, and the caption clear.
-        return !!row && (row.matches(".image-caption-peng--native-empty, .image-caption-peng--native-line") ||
+        return !!row && (row.matches(".image-caption-peng--native-line") ||
           !!row.textContent?.trim() || !!row.querySelector("img[src], [contenteditable=false]"));
 
       });
@@ -299,11 +301,19 @@ class FigureController {
     const menu = native ? Menu.forEvent(event) : new Menu().setUseNativeMenu(false);
     if (edit.figure || canWrapImage(edit.doc, edit.reference)) {
       if (this.canCrop(edit)) menu.addItem(item => item.setTitle("裁剪").setIcon("crop").onClick(() => this.open(edit, "crop")));
-      menu.addItem(item => item.setTitle(edit.figure?.caption ? "编辑图注" : "添加图注").setIcon("plus")
+      menu.addItem(item => item.setTitle(edit.figure?.caption ? "编辑图注" : "Add Caption").setIcon("plus")
         .onClick(() => this.open(edit, "caption")));
     }
     menu.addItem(item => item.setTitle("编辑 Markdown").setIcon("code").onClick(() => this.source(edit)));
     if (edit.figure) {
+      const span = edit.figure;
+      menu.addItem(item => item.setTitle("Select Figure Source").setIcon("text-select").onClick(() => {
+        if (this.valid(edit)) this.selectSource(span);
+      }));
+      const alignment = alignFigureIndent(edit.doc, edit.figure, this.view.state.facet(indentUnit));
+      if (alignment) menu.addItem(item => item.setTitle("对齐列表缩进").setIcon("align-left").onClick(() => {
+        if (this.commit(edit, alignment)) this.view.focus();
+      }));
       for (const [direction, label, icon] of [["up", "上移一级", "outdent"], ["down", "下移一级", "indent"]] as const) {
         const move = this.plannedMove(edit, direction);
         if (move) menu.addItem(item => item.setTitle(label).setIcon(icon).onClick(() => {
@@ -317,23 +327,6 @@ class FigureController {
       event.stopPropagation();
       menu.showAtMouseEvent(event);
     }
-  }
-
-  private focusPlaceholder(event: MouseEvent): void {
-    const node = event.targetNode;
-    if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
-        !node?.instanceOf(HTMLElement) || node.closest("a, button")) return;
-    const row = node.closest(".image-caption-peng--native-empty");
-    const editor = row && this.editor();
-    if (!row || !editor?.writable) return;
-    const { doc } = this.view.state;
-    const number = doc.lineAt(this.view.posAtDOM(row)).number;
-    const figure = figureIndex(doc).figures.find(item => !item.caption &&
-      number > doc.lineAt(item.image.from).number && number <= doc.lineAt(item.closing.from).number);
-    if (!figure) return;
-    event.preventDefault();
-    event.stopPropagation();
-    this.editCaption({ editor, doc, reference: figure.image, figure });
   }
 
   private nativeSelected(editor = this.editor()): { image: HTMLImageElement; target: EditTarget } | undefined {
@@ -357,7 +350,7 @@ class FigureController {
       const step = previous.steps.at(-1);
       if (step) return step;
     }
-    return moveFigure(target.doc, target.figure, direction);
+    return moveFigure(target.doc, target.figure, direction, this.view.state.facet(indentUnit));
   }
 
   moveSelected(direction: MoveDirection): boolean {
@@ -403,6 +396,52 @@ class FigureController {
     return target.doc === this.view.state.doc && sameEditor(target.editor, this.editor());
   }
 
+  private selectSource(span: Span, backward = false): void {
+    this.view.dispatch({ selection: backward ? { anchor: span.to, head: span.from } : { anchor: span.from, head: span.to },
+      scrollIntoView: true });
+    this.view.focus();
+  }
+
+  sourceCommand(kind: "select" | "repair", checking: boolean): boolean {
+    const { view } = this;
+    const editor = this.editor(false);
+    if (!editor?.writable || !view.dom.getClientRects().length || view.composing) return false;
+    const { doc, selection } = view.state;
+    if (checking) return true;
+    if (selection.ranges.length !== 1) {
+      new Notice("请选择一个完整图块。");
+      return true;
+    }
+    const { from, to, anchor, head } = selection.main;
+    if (kind === "select") {
+      const span = figureSourceSpan(doc, from, to);
+      if (span) this.selectSource(span, head < anchor);
+      else new Notice("此处找不到完整的图块。");
+      return true;
+    }
+    const repair = repairFigure(doc, from, to);
+    if ("message" in repair) {
+      new Notice(repair.message);
+      return true;
+    }
+    if (doc !== view.state.doc || selection !== view.state.selection || !sameEditor(editor, this.editor(false))) {
+      this.stale();
+      return true;
+    }
+    if (repair.changes.empty) {
+      new Notice("图块缩进已对齐。");
+      this.selectSource(repair.span, head < anchor);
+      return true;
+    }
+    const { span } = repair;
+    view.dispatch({ changes: repair.changes,
+      selection: head < anchor ? { anchor: span.to, head: span.from } : { anchor: span.from, head: span.to },
+      scrollIntoView: true,
+      annotations: [Transaction.userEvent.of("input"), isolateHistory.of("full")] });
+    view.focus();
+    return true;
+  }
+
   private source(target: EditTarget): void {
     if (!this.valid(target)) return;
     this.view.dispatch({ selection: { anchor: target.figure?.opening.from ?? target.reference.from },
@@ -410,7 +449,7 @@ class FigureController {
     this.view.focus();
   }
 
-  private commit(target: EditTarget, change: FigureChange, cursor?: number): boolean {
+  private commit(target: EditTarget, change: FigureChange | readonly FigureChange[], cursor?: number): boolean {
     if (!target.editor.writable || !this.valid(target)) return this.stale();
     this.view.dispatch({ changes: change, annotations: [Transaction.userEvent.of("input"), isolateHistory.of("full")],
       selection: cursor === undefined ? undefined : { anchor: cursor }, scrollIntoView: cursor !== undefined });
@@ -424,7 +463,7 @@ class FigureController {
       this.view.dispatch({ selection: { anchor: cursor }, scrollIntoView: true });
     } else {
       const edit = target.figure ? createCaptionRow(target.doc, target.figure) :
-        wrapImage(target.doc, target.reference, { forCaption: true });
+        wrapImage(target.doc, target.reference, { forCaption: true }, this.view.state.facet(indentUnit));
       if (!edit) {
         new Notice("无法在此处添加图注。");
         return;
@@ -443,7 +482,7 @@ class FigureController {
     if (!url) return;
     this.plugin.showModal(new CropModal(this.plugin.app, url, target.figure?.crop, crop => {
       if (!this.valid(target)) return this.stale();
-      const change = target.figure ? changeCrop(target.figure, crop) : wrapImage(target.doc, target.reference, { crop })?.changes;
+      const change = target.figure ? changeCrop(target.figure, crop) : wrapImage(target.doc, target.reference, { crop }, this.view.state.facet(indentUnit))?.changes;
       if (change) return this.commit(target, change);
       if (target.figure || !crop || (crop[0] === 0 && crop[1] === 0 && crop[2] === 1 && crop[3] === 1)) return true;
       new Notice("此改动无法保留图块的 Markdown 结构，请检查内容。");
@@ -500,6 +539,23 @@ export default class ImageEditorPlugin extends Plugin {
 
   onload(): void {
     const controller = ViewPlugin.define(view => new FigureController(view, this));
+    for (const [kind, id, name] of [
+      ["select", "select-figure-source", "Select Figure Source"],
+      ["repair", "repair-figure-indentation", "Repair Selected Figure Indentation"]
+    ] as const) {
+      this.addCommand({ id, name, checkCallback: checking => {
+        const focused = this.focusedEditor;
+        const container = this.app.workspace.getMostRecentLeaf()?.view.containerEl;
+        if (!focused || !container) return false;
+        let node: Element = focused.dom;
+        while (!container.contains(node)) {
+          const frame = node.ownerDocument.defaultView?.frameElement;
+          if (!frame) return false;
+          node = frame;
+        }
+        return focused.plugin(controller)?.sourceCommand(kind, checking) ?? false;
+      } });
+    }
     const reading = new FigureReading(this.app);
     this.register(() => reading.destroy());
     this.registerMarkdownPostProcessor((section, context) => context.addChild(reading.child(section, context)));

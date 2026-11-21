@@ -38,7 +38,7 @@ void test("promotes a continuation twice, keeps its neighbors, and preserves nat
   for (const parent of ["ListItem", "Document"]) {
     const old = state.doc;
     const selected = first(old);
-    const move = moveFigure(old, selected, "up");
+    const move = moveFigure(old, selected, "up", "\t");
     ok(move);
     ok(imageMovesWithChange(selected.image.from, selected.image.to, move));
     inverses.push({ changes: move.changes.invert(old), imageFrom: selected.image.from, imageTo: selected.image.to });

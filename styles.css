@@ -110,7 +110,7 @@
   white-space: normal;
 }
 
-.markdown-source-view .cm-content > :is(.image-caption-peng--native-marker, .image-caption-peng--native-gap, .image-caption-peng--empty-boundary:not(.image-caption-peng--native-empty)) {
+.markdown-source-view .cm-content > :is(.image-caption-peng--native-marker, .image-caption-peng--native-gap) {
   block-size: 0 !important;
   min-block-size: 0 !important;
   line-height: 0;
@@ -121,7 +121,7 @@
 }
 
 /* Keep native caption rows on the editor text column when readable line width centers ordinary rows. */
-.markdown-source-view.mod-cm6 .cm-editor .cm-contentContainer.cm-contentContainer > .cm-content > div:is(.image-caption-peng--native-line, .image-caption-peng--native-spacer, .image-caption-peng--native-empty) {
+.markdown-source-view.mod-cm6 .cm-editor .cm-contentContainer.cm-contentContainer > .cm-content > div:is(.image-caption-peng--native-line, .image-caption-peng--native-spacer) {
   box-sizing: border-box;
   inline-size: calc(var(--image-caption-gutter) + var(--image-caption-width)) !important;
   max-inline-size: calc(var(--image-caption-gutter) + var(--image-caption-width)) !important;
@@ -160,26 +160,6 @@
 .markdown-source-view.mod-cm6 .cm-content > .image-caption-peng--native-line.image-caption-peng--native-math {
   padding-inline-start: max(0px, calc(var(--image-caption-gutter) - var(--image-caption-row-border, 0px) + 4px));
   margin-block: 0;
-}
-
-.markdown-source-view .cm-content > .image-caption-peng--native-empty {
-  position: relative;
-  min-block-size: 1.45em;
-  line-height: 1.45;
-  cursor: text;
-}
-
-.markdown-source-view .cm-content > .image-caption-peng--native-empty::after {
-  content: "添加图注内容";
-  position: absolute;
-  inset-inline-start: calc(var(--image-caption-gutter) - var(--image-caption-row-border, 0px) + 4px);
-  inset-inline-end: 4px;
-  inset-block-start: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--text-faint);
-  pointer-events: none;
 }
 
 .markdown-source-view .image-caption-peng--native-line mjx-container:not([display="true"]) {

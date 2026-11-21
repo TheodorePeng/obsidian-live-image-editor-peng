@@ -1,6 +1,7 @@
 import { ChangeSet, Text } from "@codemirror/state";
 import type { SyntaxNode, Tree } from "@lezer/common";
-import { columns, figureIndex, listIndent, type Figure } from "./figure-source";
+import { leadingWhitespace, listContentPrefix, reindentFigureLine } from "./figure-indent";
+import { columns, figureIndex, type Figure } from "./figure-source";
 import { parseDocument } from "./markdown-source";
 
 export type MoveDirection = "up" | "down";
@@ -19,11 +20,7 @@ interface Row {
 interface Destination {
   scope: SyntaxNode | undefined;
   at: number;
-  indent: number;
-}
-
-function indentation(text: string): string {
-  return /^[ \t]*/.exec(text)?.[0] ?? "";
+  prefix: string;
 }
 
 function rowOf(doc: Text, pos: number): number {
@@ -48,7 +45,7 @@ function previousItem(doc: Text, figure: Figure): SyntaxNode | undefined {
   if (item?.name === "ListItem") return item;
 }
 
-function destinations(doc: Text, figure: Figure, direction: MoveDirection): Destination[] {
+function destinations(doc: Text, figure: Figure, direction: MoveDirection, unit: string): Destination[] {
   const { owner, ownsBullet } = figure;
   const at = rowOf(doc, figure.from);
   if (ownsBullet && doc.sliceString(figure.to, owner.to).trim()) return [];
@@ -57,33 +54,23 @@ function destinations(doc: Text, figure: Figure, direction: MoveDirection): Dest
     const mark = item?.getChild("ListMark");
     if (!item || !mark || !doc.sliceString(mark.to, doc.lineAt(mark.to).to).trim() ||
         figureIndex(doc).reserved.some(span => mark.from >= span.from && mark.from < span.to)) return [];
-    return [{ scope: item, at, indent: listIndent(doc, item) }];
+    return [{ scope: item, at, prefix: listContentPrefix(doc, item, unit) }];
   }
   if (owner.parent?.name !== "BulletList") return [];
   const parent = parentOfItem(owner);
   if (ownsBullet && !parent) return [];
   const scope = ownsBullet && parent ? parentOfItem(parent) : parent;
   const item = ownsBullet && parent ? parent : owner;
-  const indent = scope ? listIndent(doc, scope) : 0;
-  const markerIndent = columns(indentation(doc.lineAt(item.from).text));
-  const fitsScope = scope && markerIndent >= indent && markerIndent <= indent + 3;
-  const preferred = ownsBullet || fitsScope ? markerIndent : indent;
+  const prefix = ownsBullet ? leadingWhitespace(doc.lineAt(item.from).text) :
+    scope ? listContentPrefix(doc, scope, unit) : "";
   return [at, afterItem(doc, item)].filter((row, index, all) => all.indexOf(row) === index)
-    .map(row => ({ scope, at: row, indent: preferred }));
-}
-
-function reindent(text: string, delta: number): string {
-  if (!text) return text;
-  const whitespace = indentation(text);
-  const width = Math.max(0, columns(whitespace) + delta);
-  const tabs = whitespace.includes("\t") ? Math.floor(width / 4) : 0;
-  return "\t".repeat(tabs) + " ".repeat(width - tabs * 4) + text.slice(whitespace.length);
+    .map(row => ({ scope, at: row, prefix }));
 }
 
 // Use stable source rows to distinguish repeated list labels and identical image references.
 function shape(doc: Text, tree: Tree, rows: readonly Row[], at: number, internal?: { start: number; end: number }): string {
   const line = doc.line(at + 1);
-  const first = line.from + indentation(line.text).length;
+  const first = line.from + leadingWhitespace(line.text).length;
   const path: string[] = [];
   for (let node: SyntaxNode | null = tree.resolveInner(first, 1); node; node = node.parent) {
     if (node.name === "BulletList" || node.name === "Document") continue;
@@ -114,8 +101,8 @@ function changesAroundImage(doc: Text, next: Text, figure: Figure, moved: Figure
   return { changes, imageFrom: moved.image.from, imageTo: moved.image.to };
 }
 
-export function moveFigure(doc: Text, figure: Figure, direction: MoveDirection): FigureMove | undefined {
-  const targets = destinations(doc, figure, direction);
+export function moveFigure(doc: Text, figure: Figure, direction: MoveDirection, unit = "  "): FigureMove | undefined {
+  const targets = destinations(doc, figure, direction, unit);
   if (!targets.length) return;
   const rows = doc.toString().split("\n").map((text, original) => ({ text, original }));
   const start = rowOf(doc, figure.from);
@@ -124,11 +111,16 @@ export function moveFigure(doc: Text, figure: Figure, direction: MoveDirection):
   const external = [...rows.slice(0, start), ...rows.slice(end + 1)];
   const tree = parseDocument(doc);
   const active = figureIndex(doc).figures;
-  const base = columns(indentation(rows[start].text));
+  const base = columns(leadingWhitespace(rows[start].text));
   for (const target of targets) {
-    const delta = target.indent - base;
-    if (!delta || movedRows.some(row => row.text.trim() && columns(indentation(row.text)) + delta < 0)) continue;
-    const moved = movedRows.map(row => ({ ...row, text: reindent(row.text, delta) }));
+    if (columns(target.prefix) === base) continue;
+    const moved: Row[] = [];
+    for (const row of movedRows) {
+      const text = reindentFigureLine(row.text, base, target.prefix);
+      if (text === undefined) break;
+      moved.push({ ...row, text });
+    }
+    if (moved.length !== movedRows.length) continue;
     const at = target.at > end ? target.at - moved.length : target.at;
     const expectedOwner = target.scope ? rowOf(doc, target.scope.from) : undefined;
     const blank = { text: "", original: -1 };
