@@ -6,7 +6,7 @@ Crop local images and write Markdown captions in Obsidian. Edit in Live Preview 
 
 - In Live Preview, hover a local image and choose **Crop** or **Add Caption**. The first caption or crop wraps that image in a figure. The original attachment is preserved.
 - A figure displays one image with its optional Markdown caption. Use the compact lower-left buttons or the image menu. Click a caption and type directly underneath the image. Obsidian handles Markdown, wikilink suggestions and undo in the same editor. For a figure with a caption, click its text or choose **Edit caption** from the image menu. The lower-right handle adjusts the displayed size.
-- While editing a caption, Live Preview shows the opening and closing comments. Press **Enter** at the end of the closing comment to start a line outside the figure. Use **Edit Markdown** in the image menu to reach those markers directly.
+- While editing a caption, Live Preview shows the opening and closing comments and uses Obsidian’s editor styling for the caption. Place the caret just after the rendered image and press **Enter** to start a line below the figure. **Enter** at the end of the visible closing comment also starts a line outside the figure. Use **Edit Markdown** in the image menu to reach those markers directly.
 - Select the image and press **Shift+Tab** to move the figure up one level. **Tab** moves it back to its previous position or into the preceding eligible bullet. These keys move the figure only. The image menu also offers the available moves. Each move is one undo step.
 
 ## Install with BRAT
@@ -69,7 +69,7 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 - 在 Live Preview 悬停本地图片，点击左下角 **裁剪** 或 **Add Caption**。添加图注或首次确认裁剪时创建图块，原附件保留原样。
 - 每个图块包含一张图和可选的 Markdown 图注。点击图片下方的图注即可原位编辑，可使用原生 Markdown、`[[` 链接建议和撤销。已有图注时可直接点击正文，也可在图片右键菜单选择 **编辑图注**。右下角手柄调整显示尺寸。窄图可用右键菜单打开裁剪和图注。
-- 编辑图注时显示当前图块的首尾注释。在结束注释末尾按 **Enter**，在图块外新建一行。也可从图片菜单选择 **编辑 Markdown** 到达标记。
+- 编辑图注时显示当前图块的首尾注释，图注使用 Obsidian 原生编辑样式。光标在收起图块的图片右侧时，按 **Enter** 在整块下方新建一行。展开后，在结束注释末尾按 **Enter** 也可在图块外换行。也可从图片菜单选择 **编辑 Markdown** 到达标记。
 - 单击选中图片后按 **Shift+Tab**，将整块图文升一级。按 **Tab** 返回刚离开的原位置，或缩进到紧邻在前的合法 Bullet。图片菜单也提供当前可用的移动操作。每次移动可一步撤销。
 
 ## 通过 BRAT 安装

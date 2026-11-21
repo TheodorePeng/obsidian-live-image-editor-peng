@@ -92,6 +92,13 @@ export function createCaptionRow(doc: Text, figure: Figure): FigureEdit | undefi
   if (checked(next, figure.from, figure.to + insert.length, figure.image.target)) return { changes, cursor };
 }
 
+export function insertAfterFigure(doc: Text, figure: Figure): FigureEdit {
+  const close = doc.lineAt(figure.closing.from);
+  const indent = figure.owner.name === "ListItem" ? leadingWhitespace(close.text) : "";
+  const insert = "\n" + indent;
+  return { changes: { from: close.to, to: close.to, insert }, cursor: close.to + insert.length };
+}
+
 function firstParagraph(doc: Text, ref: ImageReference): SyntaxNode | undefined {
   for (let node: SyntaxNode | null = parseDocument(doc).resolveInner(ref.from + 1, 1); node; node = node.parent) {
     if (node.name === "Paragraph") return node;

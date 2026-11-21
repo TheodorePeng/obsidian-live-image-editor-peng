@@ -5,7 +5,7 @@ import { EditorView, keymap, ViewPlugin, type ViewUpdate } from "@codemirror/vie
 import { editorInfoField, editorLivePreviewField, Menu, Notice, Plugin, setIcon, TFile } from "obsidian";
 import { canvasTextEditor, isCanvasTextEditor, type CanvasTextEditor } from "./canvas-text-editor";
 import { CropModal } from "./crop-modal";
-import { alignFigureIndent, canRevealImage, canWrapImage, captionCursor, changeCrop, createCaptionRow, wrapImage, type FigureChange } from "./figure-change";
+import { alignFigureIndent, canRevealImage, canWrapImage, captionCursor, changeCrop, createCaptionRow, insertAfterFigure, wrapImage, type FigureChange } from "./figure-change";
 import { cropSupported, displayCrop, preserveWidthForResizeCommit } from "./figure-display";
 import { figureContext, figureExtension } from "./figure-extension";
 import { imageMovesWithChange, moveFigure, type FigureMove, type MoveDirection } from "./figure-move";
@@ -342,6 +342,25 @@ class FigureController {
     return { image, target };
   }
 
+  insertAfterRenderedFigure(): boolean {
+    const { view } = this;
+    const { selection, doc } = view.state;
+    if (!view.hasFocus || view.compositionStarted || selection.ranges.length !== 1 || !selection.main.empty) return false;
+    const editor = this.editor();
+    if (!editor?.writable) return false;
+    const { enabled, reveal } = view.state.field(figureExtension);
+    if (!enabled) return false;
+    for (const [image, target] of this.images) {
+      const figure = target.figure;
+      if (!figure || figure.image.to !== selection.main.head || figure.from === reveal ||
+          target.doc !== doc || !sameEditor(target.editor, editor) ||
+          !view.contentDOM.contains(image) || image.closest(".is-selected, .is-resizing")) continue;
+      const edit = insertAfterFigure(doc, figure);
+      return this.commit(target, edit.changes, edit.cursor);
+    }
+    return false;
+  }
+
   private plannedMove(target: EditTarget, direction: MoveDirection): FigureMove | undefined {
     if (!target.figure) return;
     const previous = this.returns;
@@ -562,12 +581,15 @@ export default class ImageEditorPlugin extends Plugin {
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => { this.editorEpoch++; }));
     this.registerEvent(this.app.workspace.on("file-open", file => { void this.checkLegacy(file); }));
     this.app.workspace.onLayoutReady(() => { void this.checkLegacy(this.app.workspace.getActiveFile()); });
-    const moveKeys = Prec.highest(keymap.of([{
+    const figureKeys = Prec.highest(keymap.of([{
       key: "Tab",
       run: view => view.plugin(controller)?.moveSelected("down") ?? false,
       shift: view => view.plugin(controller)?.moveSelected("up") ?? false
+    }, {
+      key: "Enter",
+      run: view => view.plugin(controller)?.insertAfterRenderedFigure() ?? false
     }]));
-    this.registerEditorExtension([figureExtension, nativeCaptionRows, controller, moveKeys]);
+    this.registerEditorExtension([figureExtension, nativeCaptionRows, controller, figureKeys]);
   }
 
   onunload(): void {

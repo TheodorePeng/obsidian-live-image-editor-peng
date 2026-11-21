@@ -2,7 +2,7 @@ import { deepEqual, equal, ok } from "node:assert/strict";
 import { test } from "node:test";
 import { history, isolateHistory, redo, undo } from "@codemirror/commands";
 import { ChangeSet, EditorState, Text } from "@codemirror/state";
-import { alignFigureIndent, canWrapImage, captionCursor, changeCrop, createCaptionRow, wrapImage, type FigureChange } from "../src/figure-change";
+import { alignFigureIndent, canWrapImage, captionCursor, changeCrop, createCaptionRow, insertAfterFigure, wrapImage, type FigureChange } from "../src/figure-change";
 import { figureClose, figureIndex, formatOpening, type Figure } from "../src/figure-source";
 import { imageReferences } from "../src/image-source";
 
@@ -246,4 +246,25 @@ void test("keeps an image-only heading with descendants as a list item on a sepa
   equal(next.line(3).text, "\t\t" + starter);
   equal(next.lineAt(figure(next).owner.from).number, 2);
   equal(next.toString().endsWith("\t\t- Actual descendant\n\t- Neighbor"), true);
+});
+
+void test("inserts a blank line after a figure while preserving its source and following bullet", () => {
+  const rendered = indent(block(image + " ^image-id", "- Caption\n  - Nested", { crop }));
+  const source = document("- Parent\n" + rendered + "\n- Next");
+  const original = figure(source);
+  const edit = insertAfterFigure(source, original);
+  const next = patch(source, edit.changes);
+  equal(next.toString(), "- Parent\n" + rendered + "\n  \n- Next");
+  equal(next.sliceString(original.from, original.to), source.sliceString(original.from, original.to));
+  ok(edit.cursor !== undefined);
+  equal(next.lineAt(edit.cursor).text, "  ");
+  deepEqual(figure(next).crop, original.crop);
+});
+
+void test("inserts an unindented line when an empty top-level figure ends the document", () => {
+  const markdown = [starter, image, figureClose].join("\n");
+  const source = document(markdown);
+  const edit = insertAfterFigure(source, figure(source));
+  equal(patch(source, edit.changes).toString(), markdown + "\n");
+  equal(edit.cursor, source.length + 1);
 });

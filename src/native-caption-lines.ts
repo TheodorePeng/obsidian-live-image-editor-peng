@@ -1,5 +1,6 @@
 import { StateEffect, StateField, Transaction, type Text } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
+import { figureExtension } from "./figure-extension";
 import { columns, type Figure } from "./figure-source";
 import { captionClass, refreshMath } from "./figure-layout";
 import { readIndentationGuides } from "./indentation-guides";
@@ -40,6 +41,7 @@ interface Alignment {
 }
 
 interface RowStyle {
+  figureFrom: number;
   from: number;
   style: string;
   gutter: number;
@@ -67,10 +69,14 @@ export const nativeCaptionRows = StateField.define<{ styles: readonly RowStyle[]
   create: () => ({ styles: [], decorations: Decoration.none }),
   update(current, transaction) {
     const update = transaction.effects.find(effect => effect.is(setNativeRows));
-    if (!update) return transaction.docChanged ? { styles: [], decorations: Decoration.none } : current;
+    if (transaction.docChanged && !update) return { styles: [], decorations: Decoration.none };
+    const reveal = transaction.state.field(figureExtension, false)?.reveal;
+    const rows = update?.value ?? current.styles;
+    const styles = reveal === undefined ? rows : rows.filter(row => row.figureFrom !== reveal);
+    if (!update && styles.length === current.styles.length) return current;
     return {
-      styles: update.value,
-      decorations: Decoration.set(update.value.map(line => Decoration.line({
+      styles,
+      decorations: Decoration.set(styles.map(line => Decoration.line({
         class: line.alignment ? `${line.style} ${aligned}` : line.style,
         attributes: { style: rowAttributes(line) }
       }).range(line.from)), true)
@@ -151,8 +157,7 @@ export class NativeCaptionLines {
       (row.hasClass("cm-line") ? rows : mathByLine).set(number, row);
     }
     for (const figure of figures) {
-      const editing = revealed === figure.from;
-      if (!figure.caption && !editing) continue;
+      if (!figure.caption || revealed === figure.from) continue;
       const imageLine = doc.lineAt(figure.image.from).number;
       const closingLine = doc.lineAt(figure.closing.from).number;
       if (closingLine < firstVisible || imageLine > lastVisible) continue;
@@ -188,14 +193,14 @@ export class NativeCaptionLines {
           nextMath.add(math);
         }
         const style = n === closingLine ? "" : math ? hidden :
-          editing || selected ? body :
+          selected ? body :
           n < first || n > last ? hidden : !line.text.trim() ? spacer : body;
         if (!style) continue;
         const row = rows.get(n);
         const previous = row?.hasClass(aligned) ? previousStyles.get(line.from)?.alignment : undefined;
         const alignment = style === body && row ? alignText(view, row, line.from, line.text, figure.bodyIndent, gutter, width, previous) : undefined;
         const guides = style === hidden ? { guides: "none", guideShift: 0 } : alignGuides(size, row);
-        styles.push({ from: line.from, style, gutter, width, base, border: row?.clientLeft ?? 0, font: size.font, ...guides, alignment });
+        styles.push({ figureFrom: figure.from, from: line.from, style, gutter, width, base, border: row?.clientLeft ?? 0, font: size.font, ...guides, alignment });
       }
     }
     for (const row of this.math) if (!nextMath.has(row)) this.clearMath(row);

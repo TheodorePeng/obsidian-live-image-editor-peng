@@ -2,6 +2,12 @@
 
 本文件保留各版本的验收记录，正文为中文。发布版本的说明同时出现在 [GitHub Releases](https://github.com/TheodorePeng/obsidian-live-image-editor-peng/releases) 页面。
 
+## 0.3.6
+
+- 光标停在收起图块的图片右侧时按 **Enter**，直接在整块下方新建一行，缩进沿用所在列表项。
+- 展开图块时，图注改用 Obsidian 原生编辑样式，不再叠加插件的图注样式。
+- 新增 2 项自动化测试（共 51 项），类型检查、ESLint 与构建通过。本版未做测试 Vault 手工验收。
+
 ## 0.3.5
 
 - 空图注在 Live Preview 和 Reading View 中不占空间。用图片上的加号或右键菜单的 **Add Caption** 原位添加图注。
