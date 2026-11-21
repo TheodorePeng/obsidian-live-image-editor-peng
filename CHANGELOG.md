@@ -1,6 +1,6 @@
 # Changelog
 
-本文件保留各版本的验收记录，正文为中文。发布版本的说明同时出现在 [GitHub Releases](https://github.com/TheodorePeng/live-image-editor-peng/releases) 页面。
+本文件保留各版本的验收记录，正文为中文。发布版本的说明同时出现在 [GitHub Releases](https://github.com/TheodorePeng/obsidian-live-image-editor-peng/releases) 页面。
 
 ## 0.3.5
 

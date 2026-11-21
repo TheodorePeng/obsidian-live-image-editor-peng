@@ -17,7 +17,7 @@ The installation ID remains `image-caption-peng` for upgrades from Image Caption
 
 1. Install **BRAT** from Obsidian's Community Plugins and enable it.
 2. Open the command palette and run **BRAT: Add a beta plugin for testing**.
-3. Enter the repository `TheodorePeng/live-image-editor-peng` and click **Add Plugin**.
+3. Enter the repository `TheodorePeng/obsidian-live-image-editor-peng` and click **Add Plugin**.
 4. Open Settings → Community plugins, refresh the list, and enable **Live Image Editor Peng**.
 
 To update, run **BRAT: Check for updates to all beta plugins and UPDATE** from the command palette.
@@ -26,7 +26,7 @@ Every release ships three assets — `main.js`, `manifest.json`, and `styles.css
 
 ## Manual installation
 
-Copy `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/TheodorePeng/live-image-editor-peng/releases/latest) into `<vault>/.obsidian/plugins/image-caption-peng/`, using the matching `plugins/` directory for a vault with a custom config folder. Then enable **Live Image Editor Peng** under **Settings → Community plugins**. If the plugin list does not show the new folder, refresh the list or reopen the vault.
+Copy `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/TheodorePeng/obsidian-live-image-editor-peng/releases/latest) into `<vault>/.obsidian/plugins/image-caption-peng/`, using the matching `plugins/` directory for a vault with a custom config folder. Then enable **Live Image Editor Peng** under **Settings → Community plugins**. If the plugin list does not show the new folder, refresh the list or reopen the vault.
 
 ## Syntax
 
@@ -80,7 +80,7 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 1. 在 Obsidian 社区插件市场安装并启用 **BRAT**。
 2. 打开命令面板，运行 **BRAT: Add a beta plugin for testing**。
-3. 输入仓库地址 `TheodorePeng/live-image-editor-peng`，点击 **Add Plugin**。
+3. 输入仓库地址 `TheodorePeng/obsidian-live-image-editor-peng`，点击 **Add Plugin**。
 4. 打开 **设置 → 第三方插件**，刷新列表后启用 **Live Image Editor Peng**。
 
 更新时在命令面板运行 **BRAT: Check for updates to all beta plugins and UPDATE**。
@@ -89,7 +89,7 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## 手动安装
 
-从 [最新版本](https://github.com/TheodorePeng/live-image-editor-peng/releases/latest) 下载 `main.js`、`manifest.json` 和 `styles.css`，复制到 Vault 的 `.obsidian/plugins/image-caption-peng/`。自定义配置目录的 Vault 使用对应的 `plugins/` 目录。然后在 **设置 → 第三方插件** 启用 **Live Image Editor Peng**。如果插件列表还未发现新目录，刷新插件列表或重新打开 Vault。
+从 [最新版本](https://github.com/TheodorePeng/obsidian-live-image-editor-peng/releases/latest) 下载 `main.js`、`manifest.json` 和 `styles.css`，复制到 Vault 的 `.obsidian/plugins/image-caption-peng/`。自定义配置目录的 Vault 使用对应的 `plugins/` 目录。然后在 **设置 → 第三方插件** 启用 **Live Image Editor Peng**。如果插件列表还未发现新目录，刷新插件列表或重新打开 Vault。
 
 ## 语法
 
